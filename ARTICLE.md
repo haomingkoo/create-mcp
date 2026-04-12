@@ -104,9 +104,9 @@ For stdio servers (installed via npx), go to smithery.ai → Add Server → past
 
 ## The result
 
-japan-seasons-mcp ended up at **98/100 on Smithery** with every auditable dimension maxed. It's live at [seasons.kooexperience.com](https://seasons.kooexperience.com), indexed on all five directories, and available as `npx japan-seasons-mcp` for local use or as a hosted HTTP endpoint.
+japan-seasons-mcp ended up at **100/100 on Smithery** — every dimension maxed. It's live at [seasons.kooexperience.com](https://seasons.kooexperience.com), indexed on all five directories, and available as `npx japan-seasons-mcp` for local use or as a hosted HTTP endpoint.
 
-The 2 missing points are from an opaque "Tool names" rubric that doesn't move regardless of what you change. 98 is the practical ceiling.
+The last piece — "Tool names: 5/5" — required dot notation naming (`sakura.forecast`, `koyo.spots`, `fruit.farms`) rather than the conventional `get_*` snake_case prefix. Smithery scores tool names on navigable tree structure, not verb conventions. That's not documented anywhere publicly; we found it by hovering over the score breakdown tooltip.
 
 ---
 

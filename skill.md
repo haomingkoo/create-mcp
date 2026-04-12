@@ -229,9 +229,28 @@ If `smithery.remote-config.json` doesn't exist, prompt the user:
 | Tool descriptions | 12pt | Verb-first, concise, mentions dependencies |
 | Parameter descriptions | 11pt | `.describe()` on every parameter |
 | Annotations | 7pt | `readOnlyHint` minimum on all tools |
-| Tool names | 5pt | Snake_case, action verbs, distinct |
+| Tool names | 5pt | **Dot notation hierarchy** — `domain.action` format |
 | Server capabilities | 10pt | Prompts registered (5pt bonus) |
 | Server metadata | 30pt | Description, homepage, icon, display name |
 | Configuration UX | 25pt | `configSchema` in smithery.yaml |
 
-Total: 100pt. Common ceiling at 98 — "Tool names" rubric is partially opaque.
+Total: 100pt achievable.
+
+### Tool names: how to get 5/5
+
+Smithery scores tool names on **navigable tree structure using dot notation**, not snake_case verb prefixes. `get_sakura_forecast`, `get_koyo_spots`, `get_weather_forecast` — 12 tools all starting with `get_` scores 3/5 regardless of how descriptive they are.
+
+**Use `domain.action` format:**
+
+```
+sakura.forecast      koyo.forecast      kawazu.forecast
+sakura.spots         koyo.spots         weather.forecast
+sakura.best_dates    koyo.best_dates    flowers.spots
+                                        fruit.seasons
+                                        fruit.farms
+                                        festivals.list
+```
+
+The evaluator rewards a clean hierarchy where tools group naturally under domain namespaces. Aim for 2–6 tools per namespace, 2 levels deep max.
+
+This is different from the MCP spec recommendation of `snake_case` with verb prefixes. For Smithery specifically, dot notation is what moves the score from 3/5 to 5/5.

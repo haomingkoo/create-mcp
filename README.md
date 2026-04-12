@@ -124,7 +124,7 @@ The skill's publish checklist walks through each one.
 | Server metadata | 30 |
 | Configuration UX | 25 |
 
-98/100 is the practical ceiling. The "Tool names" rubric is partially opaque and doesn't respond to naming changes.
+**100/100 is achievable.** The "Tool names" sub-score (5pt) rewards a navigable hierarchy using dot notation — `domain.action` format (e.g. `sakura.forecast`, `koyo.spots`, `fruit.farms`). Every tool sharing the same `get_` prefix caps you at 3/5 regardless of how descriptive the names are. Switch to dot notation and the score jumps to 5/5.
 
 ---
 
@@ -132,7 +132,7 @@ The skill's publish checklist walks through each one.
 
 [japan-seasons-mcp](https://github.com/haomingkoo/japan-seasons-mcp) was built and audited with this skill. It's a live Japan seasonal travel data server: cherry blossoms, autumn leaves, fruit picking, festivals, weather. 12 tools, 1,700+ GPS-tagged locations, real-time JMC forecast data.
 
-Smithery score: **98/100**. Every auditable dimension maxed.
+Smithery score: **100/100**. Every dimension maxed, including the elusive "Tool names: 5/5" — achieved with dot notation naming (`sakura.forecast`, `koyo.spots`, `fruit.farms`, etc.).
 
 Live at [seasons.kooexperience.com](https://seasons.kooexperience.com) and on npm as `japan-seasons-mcp`.
 
