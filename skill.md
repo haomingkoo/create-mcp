@@ -189,8 +189,26 @@ npm run build && npm publish
 
 ### Smithery
 
-1. Go to smithery.ai → Add Server → paste GitHub URL
-2. Fill in connection settings with your defaults
+**For hosted HTTP servers** (the server runs on a URL, not locally):
+
+Check if `smithery.remote-config.json` exists. If it does, publish with the CLI:
+
+```bash
+npx @smithery/cli mcp publish \
+  "https://YOUR_DOMAIN/mcp" \
+  -n YOUR_GITHUB_USERNAME/YOUR_REPO_NAME \
+  --config-schema "$(cat smithery.remote-config.json)"
+```
+
+Replace `YOUR_DOMAIN`, `YOUR_GITHUB_USERNAME`, and `YOUR_REPO_NAME` with the actual values from the project.
+
+If `smithery.remote-config.json` doesn't exist, prompt the user:
+> Does this server have connection options users need to configure (API keys, custom URLs)? If yes, we need to create a `smithery.remote-config.json` first. If no, do you have a hosted endpoint URL?
+
+**For stdio servers** (installed locally via npx):
+
+1. Ensure `smithery.yaml` exists with `startCommand` and `configSchema`
+2. Go to smithery.ai → Add Server → paste GitHub URL
 3. Trigger a scan and verify score
 
 ### Other directories
