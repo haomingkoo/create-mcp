@@ -103,6 +103,42 @@ npx @smithery/cli mcp publish \
 
 **Smithery — stdio servers (installed via npx):** Add Server at smithery.ai → paste GitHub URL → trigger scan.
 
+---
+
+### Do you need npm?
+
+It depends on how your server runs.
+
+**Hosted servers (HTTP — deployed on Railway, Fly.io, etc.)** don't need npm. Users connect via your URL directly. Smithery stores the endpoint, Railway auto-deploys on git push, and users get every update automatically with no action on their side. [japan-seasons-mcp](https://github.com/haomingkoo/japan-seasons-mcp) works this way.
+
+**Local servers (stdio — runs on the user's machine)** need npm. When a user adds your server to Claude Desktop, the config looks like:
+
+```json
+{
+  "mcpServers": {
+    "my-server": {
+      "command": "npx",
+      "args": ["my-server-mcp"]
+    }
+  }
+}
+```
+
+Claude Desktop spawns `npx my-server-mcp` as a subprocess on startup. `npx` fetches the package from npm and runs it — that's the entire install story from the user's side. No cloning, no build step. But it only works if the package is on npm.
+
+To publish:
+
+```bash
+npm run build            # compile TypeScript → dist/
+npm publish --otp=123456 # one-time password from your npm account
+```
+
+Users always get the latest version because `npx` checks for updates on each run. Ship a fix, push to npm, and it's live for everyone automatically.
+
+**Which to build?** Public data that doesn't vary per user → hosted HTTP (simpler, zero user installs). Needs access to local files, localhost services, or private credentials → stdio.
+
+---
+
 | Directory | URL | What you need |
 |---|---|---|
 | mcp.so | mcp.so/submit | GitHub URL + npx config JSON || Glama | glama.ai/mcp/servers | GitHub URL only |
