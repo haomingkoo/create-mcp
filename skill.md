@@ -49,10 +49,14 @@ Ask these questions one group at a time — do not dump them all at once:
 From the answers, produce:
 
 **Tool list** — name every tool with:
-- Snake_case name starting with a verb (`get_`, `search_`, `create_`, `list_`)
+- **Dot notation `domain.action` format** — e.g. `sakura.forecast`, `user.search`, `order.create`
+- Group related tools under the same domain prefix (`sakura.*`, `koyo.*`, `fruit.*`)
+- Aim for 2–6 tools per domain, max 2 levels deep
 - One-line purpose
 - Required vs optional parameters
 - Dependencies (must call tool A before tool B)
+
+> **Why dot notation?** Smithery scores "Tool names" on navigable tree structure. `get_*` uniformity caps at 3/5. Dot notation grouping (`domain.action`) achieves 5/5 and 100/100.
 
 **Architecture decisions:**
 - Transport: stdio for local, StreamableHTTP for hosted
@@ -107,7 +111,7 @@ const DATA = {
 ```typescript
 const READONLY: ToolAnnotations = { readOnlyHint: true, idempotentHint: true };
 
-server.registerTool("get_something", {
+server.registerTool("domain.action", {  // dot notation — e.g. "sakura.forecast", "user.search"
   title: "Human Readable Title",
   description: "Get [resource] for [use case]. Call [other_tool] first for [context].",
   inputSchema: { query: z.string().describe("...") },
