@@ -105,8 +105,7 @@ npx @smithery/cli mcp publish \
 
 | Directory | URL | What you need |
 |---|---|---|
-| mcp.so | mcp.so/submit | GitHub URL + npx config JSON |
-| Glama | glama.ai/mcp/servers | GitHub URL only |
+| mcp.so | mcp.so/submit | GitHub URL + npx config JSON || Glama | glama.ai/mcp/servers | GitHub URL only |
 | PulseMCP | pulsemcp.com | GitHub URL + description |
 | awesome-mcp-servers | Fork punkpeye/awesome-mcp-servers, add one line | `🤖🤖🤖` in PR title |
 
