@@ -137,6 +137,27 @@ Users always get the latest version because `npx` checks for updates on each run
 
 **Which to build?** Public data that doesn't vary per user → hosted HTTP (simpler, zero user installs). Needs access to local files, localhost services, or private credentials → stdio.
 
+#### Deploying a hosted server on Railway
+
+Railway is the easiest hosting option for MCP servers — connect your GitHub repo and it deploys automatically on every push.
+
+1. Push your server to GitHub
+2. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub repo
+3. Set the start command: `node dist/index.js`
+4. Add any environment variables (API keys, etc.) in the Railway dashboard
+5. Copy the public URL Railway gives you (e.g. `https://your-app.up.railway.app`)
+
+That URL is your MCP endpoint. Use it when publishing to Smithery:
+
+```bash
+npx @smithery/cli mcp publish \
+  "https://your-app.up.railway.app/mcp" \
+  -n your-github-username/your-repo \
+  --config-schema "$(cat smithery.remote-config.json)"
+```
+
+From that point, every `git push` to main triggers a Railway redeploy. All users connecting via Smithery or the direct URL get the update automatically — no version bumps, no user installs.
+
 ---
 
 | Directory | URL | What you need |
