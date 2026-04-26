@@ -15,6 +15,8 @@ Read this when the user asks "will this run locally or be hosted?" or when decid
 | Auth | API key via `smithery.yaml` commandFunction env | API key via remote config schema |
 | Examples | File system access, local databases, dev tools | Weather APIs, public data, SaaS integrations |
 
+Important: a public HTTP MCP endpoint does not make normal ChatGPT web chat an MCP client. ChatGPT Search can discover and cite pages, but tool execution requires a client/app/connector that has registered the MCP server.
+
 ---
 
 ## stdio — detailed
@@ -35,6 +37,8 @@ User's machine
 - You want zero hosting cost
 - The tool is developer-facing (IDE integrations, git tools, build tools)
 - You don't want to maintain a server
+
+**Setup friction:** stdio usually requires config or install. For nontechnical Claude Desktop users, also consider shipping an MCPB bundle so they can install without hand-editing JSON.
 
 **SDK setup:**
 ```typescript
@@ -84,6 +88,8 @@ User's machine          Your server (Railway/Fly.io)
 - The server needs to stay warm (persistent cache, background jobs)
 - You're building a SaaS MCP product
 
+**Discovery requirement:** hosted public-data MCPs should also expose crawlable pages or JSON APIs. AI search can use those pages even when it cannot execute MCP tools.
+
 **SDK setup:**
 ```typescript
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -94,6 +100,33 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 ```json
 { "type": "object", "properties": {}, "required": [] }
 ```
+
+**ChatGPT app/connector setup:** provide a public HTTPS `/mcp` URL plus operational metadata. See `references/discovery-guide.md` for the exact copy pattern.
+
+---
+
+## MCPB — one-click local install
+
+Use MCPB when the server is local/stdio and the audience uses Claude Desktop or another MCPB-aware desktop client.
+
+MCPB is a zip-style bundle containing the server, dependencies, and a `manifest.json`. It reduces local setup friction but does not replace hosted HTTP for public data.
+
+Typical Node bundle flow:
+
+```bash
+npm run build
+npm install --production
+npx @anthropic-ai/mcpb pack
+```
+
+Use MCPB for:
+- local files or local services
+- private credentials stored on the user's machine
+- nontechnical users who should not edit MCP JSON
+
+Avoid MCPB for:
+- public shared datasets where hosted HTTP is simpler
+- servers that need one always-on cache shared by all users
 
 ---
 

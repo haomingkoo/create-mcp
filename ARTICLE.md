@@ -10,7 +10,7 @@ With an MCP server, the AI can call your actual data. Live, on demand.
 
 Developers are already publishing servers for GitHub, Jira, Stripe, internal databases, weather APIs, sports scores — anything useful that an AI agent might want to query. Anthropic, OpenAI, Google DeepMind, and most of the major coding tools now support the protocol.
 
-If you have an API or data source, an MCP server is how you give AI clients access to it.
+If you have an API or data source, an MCP server is how you give AI clients access to it. But there is an important boundary: normal ChatGPT web chat is not an arbitrary MCP client. It can find and cite pages through search, but it cannot dynamically register your MCP endpoint and call tools unless the environment supports MCP apps/connectors.
 
 ---
 
@@ -28,7 +28,9 @@ Here's what most developers miss:
 
 **Discovery requires work after publishing.** Smithery, mcp.so, Glama, PulseMCP — there are several directories where people find MCP servers. Most developers publish to npm and stop there.
 
-I hit all of these problems while building [japan-seasons-mcp](https://github.com/haomingkoo/japan-seasons-mcp), a live Japan seasonal travel data server with 12 tools, 1,700+ GPS-tagged spots, and real-time JMC forecast data. Fixing each issue manually took longer than building the initial server.
+**Search visibility and tool execution are different.** If ChatGPT Search finds your MCP page, that only means it can read the web result. It does not mean it can execute `sakura_forecast` or any other MCP tool. For public data, you need crawlable pages, text summaries, and JSON APIs alongside the MCP endpoint.
+
+I hit all of these problems while building [japan-seasons-mcp](https://github.com/haomingkoo/japan-seasons-mcp), a live Japan seasonal travel data server with 17 tools, 1,700+ GPS-tagged spots, real-time JMC forecast data, a hosted MCP endpoint, and AI-search-ready forecast pages. Fixing each issue manually took longer than building the initial server.
 
 ---
 
@@ -38,7 +40,7 @@ I hit all of these problems while building [japan-seasons-mcp](https://github.co
 
 **Starting from scratch:**
 
-Claude asks about your data source, what questions users would naturally ask it, whether it needs auth, and whether it runs locally or on a server. From those answers it proposes a tool structure for review, then builds the full server with all 10 quality dimensions built in from the start. Not as an afterthought.
+Claude asks about your data source, what questions users would naturally ask it, whether it needs auth, whether it runs locally or on a server, and how users should discover it. From those answers it proposes a tool structure for review, then builds the full server with all 10 quality dimensions built in from the start. Not as an afterthought.
 
 **Already have a server:**
 
@@ -56,7 +58,7 @@ Estimated Smithery impact: ~72 → ~95
 
 **Ready to ship:**
 
-The skill ends with the full publish checklist: version bump, `npm run build && npm publish`, Smithery CLI command, and the four other directories worth submitting to.
+The skill ends with the full publish checklist: version bump, `npm run build && npm publish`, hosted deploy verification, ChatGPT app/connector metadata, MCPB packaging when useful, Smithery CLI command, and the other directories worth submitting to.
 
 ---
 
@@ -74,12 +76,17 @@ The skill ends with the full publish checklist: version bump, `npm run build && 
 | Error handling | Tools that throw exceptions crash the client. Return `isError: true` instead. |
 | package.json | Smithery indexes description, keywords, homepage. Missing fields drop your score. |
 | README | Copy-pasteable install, tools table, hosted endpoint. |
+| AI-search surfaces | Plain text/HTML/JSON pages let ChatGPT Search and other AI search products cite current data without MCP execution. |
+| ChatGPT connector setup | ChatGPT needs an app/connector registration before it can call a remote MCP server. |
+| MCPB packaging | Local stdio servers can offer one-click desktop install instead of manual JSON config. |
 
 ---
 
 ## Getting discovered
 
 After you publish, submit to these directories. Each one takes a few minutes and gets your server in front of developers actively looking for MCPs to add to their workflows.
+
+For hosted public-data MCPs, discovery also means web discovery. Add `/llms.txt`, `/sitemap.xml`, topic pages, JSON APIs, and plain text summaries for high-intent AI-search prompts. If a user asks "latest sakura dates" in normal ChatGPT, the best possible path may be a crawlable forecast page, not the MCP tool.
 
 **Smithery** — the main one. For hosted HTTP servers, the CLI makes it straightforward:
 
@@ -104,9 +111,7 @@ For stdio servers (installed via npx), go to smithery.ai → Add Server → past
 
 ## The result
 
-japan-seasons-mcp ended up at **100/100 on Smithery** — every dimension maxed. It's live at [seasons.kooexperience.com](https://seasons.kooexperience.com), indexed on all five directories, and available as `npx japan-seasons-mcp` for local use or as a hosted HTTP endpoint.
-
-The last piece — "Tool names: 5/5" — required dot notation naming (`sakura.forecast`, `koyo.spots`, `fruit.farms`) rather than the conventional `get_*` snake_case prefix. Smithery scores tool names on navigable tree structure, not verb conventions. That's not documented anywhere publicly; we found it by hovering over the score breakdown tooltip.
+japan-seasons-mcp currently sits at **98/100 on Smithery** because we chose Claude-compatible underscore tool names over dotted names. It's live at [seasons.kooexperience.com](https://seasons.kooexperience.com), available as `npx japan-seasons-mcp`, and exposed as a hosted HTTP endpoint. The next improvement was adding crawlable forecast text and clearer ChatGPT connector guidance, because many users discover tools through AI search before they ever configure an MCP client.
 
 ---
 

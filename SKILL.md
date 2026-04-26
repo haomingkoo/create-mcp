@@ -1,16 +1,17 @@
 ---
 name: create-mcp
 description: >
-  Full MCP development lifecycle skill — from idea to 100/100 on Smithery.
+  Full MCP development lifecycle skill — from idea to production-ready MCP.
   Use this skill whenever the user wants to create, build, scaffold, audit, improve, or publish
   an MCP (Model Context Protocol) server. Also triggers on: "mcp quality", "smithery score",
   "build mcp", "new mcp", "audit mcp", "/create-mcp". Covers both creating from scratch and
-  improving an existing server. Guides through tool design (dot notation naming), TypeScript
-  scaffolding, all 10 Smithery quality dimensions, npm publish, and directory submission.
+  improving an existing server. Guides through client-compatible tool design, TypeScript
+  scaffolding, all 10 Smithery quality dimensions, AI-search visibility, ChatGPT app/connector
+  setup, MCPB packaging, npm publish, hosted deploy verification, and directory submission.
   Always use this skill for any MCP-related task — do not wing it without the skill.
 ---
 
-A Claude Code skill for the full MCP development lifecycle — from idea to 100/100 on Smithery.
+A Claude Code skill for the full MCP development lifecycle — from idea to production-ready server.
 
 Detects automatically whether you're starting fresh or auditing an existing server.
 
@@ -39,6 +40,8 @@ Ask these questions one group at a time:
 **Who uses it:**
 - Which MCP client? (Claude Desktop, Claude Code, Cursor, Windsurf, all)
 - Will it run locally (stdio) or be hosted (HTTP)?
+- Should non-MCP users find useful answers through ChatGPT Search, Google AI Mode, Perplexity, or web search?
+- Does ChatGPT need this as an app/connector, or is web citation enough?
 
 **Auth and access:**
 - Does it need API keys or credentials?
@@ -52,15 +55,25 @@ Ask these questions one group at a time:
 
 ### Phase 2: Design
 
-From the answers, produce a **tool list** with dot notation names:
+From the answers, produce a **tool list** with client-compatible names:
 
-- **Format:** `domain.action` — e.g. `crypto.price`, `user.search`, `order.create`
-- **Grouping:** 2–6 tools per domain prefix, max 2 levels deep
-- **Why this matters:** Smithery scores "Tool names" on navigable tree structure. Uniform `get_*` prefixes cap at 3/5. Dot notation achieves 5/5 and is one of the two final unlocks for 100/100.
+- **Default format:** `domain_action` — e.g. `crypto_price`, `user_search`, `order_create`
+- **Avoid:** vague `get_*` names when the domain/action can be clearer
+- **Only use dot notation** (`domain.action`) if the target clients are verified to support it reliably
+- **Tradeoff:** Smithery may score dotted names higher, but client execution reliability wins. A 98/100 score with Claude-compatible tool names is better than 100/100 with names the target client cannot call.
 
 For each tool, specify: one-line purpose, required vs optional parameters, dependencies (must call A before B).
 
 Also plan **1–2 prompts** that cover common full workflows (e.g. a "plan cherry blossom trip" prompt that chains forecast → best dates → spots).
+
+If the server is hosted and exposes public/current data, also produce a **discovery surface plan**:
+- MCP endpoint: `/mcp`
+- AI-search page(s): topic HTML plus plain text/Markdown for high-intent queries
+- JSON API(s) when useful for deterministic citations
+- `/llms.txt`, `/sitemap.xml`, `/robots.txt`, and `/health`
+- ChatGPT app/connector metadata: name, operational description, connector URL
+
+State the boundary explicitly: ChatGPT web chat/search may cite pages, but it cannot call arbitrary MCP tools unless the MCP endpoint is connected as an app/connector or the environment is an MCP client.
 
 Present the design and get user confirmation before writing code.
 
@@ -69,6 +82,12 @@ Present the design and get user confirmation before writing code.
 ### Phase 3: Build
 
 Read `references/typescript-boilerplate.md` now — it has the complete templates for `package.json`, `tsconfig.json`, `src/lib/cache.ts`, `src/lib/fetch.ts`, and `src/index.ts`.
+
+Also read `references/discovery-guide.md` when any of these are true:
+- hosted HTTP server
+- public/current data
+- user asks about ChatGPT, AI search, SEO, discoverability, adoption, or "why nobody uses my MCP"
+- local stdio server targets nontechnical Claude Desktop users
 
 Scaffold this structure:
 
@@ -83,6 +102,8 @@ package.json            — all metadata fields (see boilerplate)
 tsconfig.json
 smithery.yaml           — stdio servers (see references/smithery-config.md)
 smithery.remote-config.json  — hosted servers (see references/smithery-config.md)
+server.json             — official registry metadata when publishing publicly
+public/                 — only for hosted HTTP servers with web/AI-search surfaces
 README.md
 ```
 
@@ -93,11 +114,16 @@ Key things to get right in every build:
 - All handlers wrapped in try/catch returning `isError: true` (never throw)
 - Static data (files, hardcoded lists) loaded at module level, never inside handlers
 - Every parameter has `.describe()` AND `.meta({ title })`
+- For hosted public data, provide crawlable pages/APIs for AI search in addition to `/mcp`
+- For ChatGPT, document app/connector setup; do not imply normal ChatGPT web chat can run MCP tools
+- For local stdio servers aimed at nontechnical users, add MCPB packaging guidance
 - **API key handling**: if using `required: []` in smithery.yaml (key is optional), the server must handle a missing key gracefully — don't call `process.exit(1)` when the key is absent. Instead, let the handler return `isError: true` with a helpful message. If the server truly cannot function without the key, either set `required: ["apiKey"]` or ensure the `commandFunction` always passes the env var so it's always present when Smithery runs it.
 
 See `references/smithery-config.md` for smithery.yaml and smithery.remote-config.json templates.
 
 For a plain-language explanation of stdio vs HTTP transports and references, see `references/deployment-guide.md`.
+
+For discoverability, ChatGPT connector setup, AI-search pages, MCPB bundles, and publish/deploy verification, see `references/discovery-guide.md`.
 
 ---
 
@@ -107,17 +133,19 @@ For a plain-language explanation of stdio vs HTTP transports and references, see
 
 Read `src/index.ts`. Build a table:
 
-| Tool name | Has title? | Description verb-first? | All params have .describe() + .meta()? | Annotations set? | Dot notation? |
+| Tool name | Has title? | Description verb-first? | All params have .describe() + .meta()? | Annotations set? | Client-safe? |
 |---|---|---|---|---|---|
 
 Also check: prompts registered? cache.ts present? static data inside vs outside handlers?
+
+If it is hosted/public, also check: `/health`, `/llms.txt`, `/sitemap.xml`, AI-search topic/text pages, JSON APIs, `search`/`fetch` compatibility, and README language separating web search from MCP tool execution.
 
 ### Step 2: Score every dimension
 
 Read `references/smithery-config.md` for the full scoring table and score ladder.
 
 Quick checklist:
-- [ ] Tool names use `domain.action` dot notation (5pt — final unlock for 100/100)
+- [ ] Tool names are specific, stable, and compatible with target clients; use `domain_action` unless dotted names are verified safe
 - [ ] Tool descriptions: verb-first, ≤2 sentences, states next tool (12pt)
 - [ ] All params have `.describe()` + `.meta({ title })` (11pt)
 - [ ] All tools have annotations (`readOnlyHint` minimum; `openWorldHint` for APIs) (7pt)
@@ -126,12 +154,14 @@ Quick checklist:
 - [ ] package.json: `description`, `keywords`, `author`, `license`, `homepage`, `repository` (10pt)
 - [ ] smithery.yaml or smithery.remote-config.json with `required: []` (25pt)
 - [ ] Smithery UI: icon + display name + server description (20pt — manual)
+- [ ] Hosted public-data servers expose crawlable AI-search pages/APIs and do not rely on MCP alone for ChatGPT Search users
+- [ ] ChatGPT docs explain app/connector setup instead of implying arbitrary MCP execution in normal chat
 
 ### Step 3: Fix everything in one pass
 
 Priority order (highest score impact first):
 
-1. Tool names → dot notation
+1. Tool names → specific client-compatible names
 2. Tool descriptions → verb-first, 2 sentences, call-next
 3. Parameter descriptions → `.describe()` + `.meta({ title })` on every input
 4. Annotations → READONLY / READONLY_EXTERNAL / WRITE / DESTRUCTIVE
@@ -142,9 +172,12 @@ Priority order (highest score impact first):
 9. Error handling → wrap all handlers in try/catch returning `isError: true`
 10. package.json → all metadata fields
 11. smithery.yaml / smithery.remote-config.json → add configSchema with `required: []`
-12. README → clear first paragraph, install snippet, tools table
+12. Discovery surfaces → add `/health`, `/llms.txt`, sitemap, robots, text/JSON pages, ChatGPT connector metadata when hosted/public
+13. MCPB → add bundle guidance for local stdio servers targeting Claude Desktop users
+14. README → clear first paragraph, install snippet, tools table, AI-search vs MCP distinction
 
 See `references/typescript-boilerplate.md` for correct code patterns.
+See `references/discovery-guide.md` for public-data adoption patterns.
 
 **Audit output requirement — generate these files** (write the actual content, don't just list what needs to change):
 - `package.json` — all fields filled with real project values; no placeholder text for `homepage`, `repository`, or `author`
@@ -156,13 +189,15 @@ The audit is only complete when both files exist on disk. A score report without
 
 ```
 Fixed:
-- Tool names: renamed to dot notation (domain.action) → +5pt
+- Tool names: renamed vague/get-prefixed tools to specific client-compatible names
 - Tool descriptions: rewrote X/N that were noun-first or over 2 sentences → est. +Xpt
 - Annotations: added READONLY to all N tools, READONLY_EXTERNAL on N with API calls → +7pt
 - Parameter descriptions: added .describe() + .meta() to N parameters → +11pt
 - Prompts: added [workflow_name] prompt → +5pt
 - package.json: added homepage, repository, expanded keywords
 - smithery.yaml: added configSchema with required: []
+- Discovery: added AI-search pages/APIs and clarified that web search cannot execute MCP tools
+- ChatGPT: added app/connector metadata and current setup guidance
 
 Manual action needed in Smithery UI:
 - Upload server icon → +7pt
@@ -181,14 +216,27 @@ Run after Create or Audit is complete.
 ### Pre-publish checklist
 
 - [ ] Version bumped in `package.json`
+- [ ] `npm view <package> version` checked; local version is not already published
+- [ ] `npm outdated --json` checked for stale dependencies
 - [ ] `npm run build` passes with no errors
+- [ ] `npm pack --dry-run` shows the intended files
 - [ ] README has: what it does, install snippet, tools table, hosted endpoint if applicable
 - [ ] `smithery.yaml` or `smithery.remote-config.json` exists
+- [ ] hosted server deploy is planned separately from npm publish
 
 ### Publish
 
 ```bash
 npm run build && npm publish --otp=YOUR_OTP
+```
+
+npm versions are immutable. If publish fails with "previously published versions", run `npm version patch --no-git-tag-version`, sync registry metadata such as `server.json`, rebuild, and publish again.
+
+After publishing a hosted server, push/deploy the app and verify production:
+
+```bash
+curl https://YOUR_DOMAIN/health
+curl -I https://YOUR_DOMAIN/your-ai-search-page.txt
 ```
 
 ### Smithery — hosted servers

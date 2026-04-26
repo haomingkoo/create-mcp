@@ -73,7 +73,7 @@ The `required: []` matters — Smithery awards 15pt for optional config (vs. 10p
 | Tool descriptions | 12pt | Verb-first, ≤2 sentences, states next tool |
 | Parameter descriptions | 11pt | `.describe()` + `.meta({ title })` on every param |
 | Annotations | 7pt | `readOnlyHint` minimum; `openWorldHint` for external APIs |
-| **Tool names** | **5pt** | **Dot notation `domain.action` — NOT `get_*` snake_case** |
+| **Tool names** | **5pt** | Navigable names. Smithery rewards dot notation, but target-client compatibility takes priority. |
 | Prompts | 5pt | Register ≥1 prompt for a real workflow |
 | Resources | 5pt | Awarded automatically — no action needed |
 | Server description | 10pt | Set in Smithery UI settings (not package.json) |
@@ -97,27 +97,29 @@ The `required: []` matters — Smithery awards 15pt for optional config (vs. 10p
 | ~90 | Prompts registered, caching and error handling clean |
 | ~95 | smithery.yaml with configSchema, README polished |
 | ~98 | All code dimensions maxed, Smithery UI metadata not set |
-| **100** | **Dot notation tool names + Smithery UI icon/display name/description** |
+| **100** | **All scoring dimensions plus Smithery UI icon/display name/description** |
 
 ---
 
-## The dot notation rule
+## Tool naming tradeoff
 
 Smithery's exact tooltip text: *"Measures how well tool names form a navigable tree using dot-notation (e.g., admin.tools.list). Scores higher when hierarchy depth matches the ideal for the number of tools — flat lists of many tools and unnecessarily deep nesting both reduce the score."*
 
-Rules:
-- Use `domain.action` format: `sakura.forecast`, `user.search`, `order.create`
-- 2–6 tools per domain prefix
-- Max 2 levels deep
-- Uniform `get_*` caps at 3/5 regardless of how descriptive the names are
+Do not blindly optimize for this if the target client cannot reliably call dotted tool names.
 
-Example structure (12 tools, 6 domains):
+Rules:
+- Default to client-compatible names such as `sakura_forecast`, `user_search`, `order_create`
+- Avoid vague uniform prefixes such as `get_*` when a domain/action name is clearer
+- Use dot notation only when the target MCP clients have been tested with dotted names
+- Accept a lower Smithery tool-name subscore when compatibility requires it; 98/100 with reliable Claude usage is a good outcome
+
+Client-safe example structure:
 ```
-sakura.forecast    koyo.forecast    weather.forecast
-sakura.spots       koyo.spots       flowers.spots
-sakura.best_dates  koyo.best_dates  fruit.seasons
-                   kawazu.forecast  fruit.farms
-                                    festivals.list
+sakura_forecast    koyo_forecast    weather_forecast
+sakura_spots       koyo_spots       flowers_spots
+sakura_best_dates  koyo_best_dates  fruit_seasons
+                   kawazu_forecast  fruit_farms
+                                    festivals_list
 ```
 
 ---

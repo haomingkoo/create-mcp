@@ -1,6 +1,6 @@
 # create-mcp
 
-A Claude Code skill for the full MCP development lifecycle. Start with an idea, end with a published server that AI clients can actually discover and use.
+A Claude Code skill for the full MCP development lifecycle. Start with an idea, end with a published server that AI clients can discover, cite, connect to, and use.
 
 ![Japan in Seasons — built and audited with create-mcp](assets/japan-seasons-result.png)
 
@@ -22,7 +22,7 @@ The protocol itself isn't complicated. What's annoying is everything around it.
 
 Getting a tool description right matters more than it looks. AI clients use descriptions to decide which tool to call and when. A vague or missing description means the client either skips your tool or calls it wrong. The same goes for parameter descriptions, server instructions, caching, error handling — every dimension affects how useful the server actually is, and how well it ranks on directories like Smithery.
 
-Most developers ship something that works locally and then wonder why nobody finds it.
+Most developers ship something that works locally and then wonder why nobody finds it. A second common trap: a model may find your MCP page in ChatGPT Search, but that does not mean the chat can execute your MCP tools. Search visibility and MCP tool execution are separate surfaces.
 
 ---
 
@@ -32,11 +32,11 @@ Most developers ship something that works locally and then wonder why nobody fin
 
 Two paths, auto-detected:
 
-**Starting from scratch** — Claude asks about your data source, the natural questions users would ask, auth requirements, and whether it runs locally or hosted. From those answers it designs the tool structure, proposes it for your review, then scaffolds production-ready TypeScript. It builds in caching, error handling, and all 10 quality dimensions from the start.
+**Starting from scratch** — Claude asks about your data source, the natural questions users would ask, auth requirements, whether it runs locally or hosted, and how users should discover it. From those answers it designs the tool structure, proposes it for your review, then scaffolds production-ready TypeScript. It builds in caching, error handling, AI-search surfaces, and all 10 quality dimensions from the start.
 
 **Already have an MCP** — Claude reads your `src/index.ts`, scores every dimension, fixes everything in one pass, and reports what changed and what Smithery impact to expect.
 
-Either way, the skill ends with the publish checklist: version bump, npm publish, and where to submit for discovery.
+Either way, the skill ends with the publish checklist: version bump, npm publish, hosted deploy verification, ChatGPT app/connector copy, MCPB packaging when useful, and where to submit for discovery.
 
 ---
 
@@ -50,8 +50,13 @@ Or manually:
 
 ```bash
 mkdir -p ~/.claude/skills/create-mcp
-curl -o ~/.claude/skills/create-mcp/skill.md \
-  https://raw.githubusercontent.com/haomingkoo/create-mcp/main/skill.md
+curl -o ~/.claude/skills/create-mcp/SKILL.md \
+  https://raw.githubusercontent.com/haomingkoo/create-mcp/main/SKILL.md
+mkdir -p ~/.claude/skills/create-mcp/references
+for file in typescript-boilerplate smithery-config deployment-guide discovery-guide; do
+  curl -o ~/.claude/skills/create-mcp/references/$file.md \
+    https://raw.githubusercontent.com/haomingkoo/create-mcp/main/references/$file.md
+done
 ```
 
 Restart Claude Code. Run `/create-mcp` in any session.
@@ -71,7 +76,7 @@ Claude detects which path applies from the project directory.
 
 ## What gets built and audited
 
-These are the 10 dimensions the skill enforces. Each one affects whether AI clients use your tools correctly, and whether users find your server.
+These are the core dimensions the skill enforces. Each one affects whether AI clients use your tools correctly, and whether users find your server.
 
 | Dimension | Why it matters |
 |---|---|
@@ -85,12 +90,24 @@ These are the 10 dimensions the skill enforces. Each one affects whether AI clie
 | Error handling | Tools that throw exceptions crash the client session. Every handler needs a try/catch that returns `isError: true`. |
 | package.json | Smithery and other directories index description, keywords, homepage, repository. Missing fields drop your score. |
 | README | Copy-pasteable install snippet, tools table, hosted endpoint if applicable. |
+| AI-search surfaces | Hosted public-data MCPs should expose crawlable text/HTML/JSON pages so ChatGPT Search and other AI search products can cite current data without MCP execution. |
+| ChatGPT connector setup | ChatGPT needs an app/connector registration before it can call MCP tools; finding the endpoint through search is not enough. |
+| MCPB packaging | Local stdio servers can reduce setup friction with a one-click bundle for desktop clients. |
 
 ---
 
 ## Getting your MCP discovered
 
 After publishing to npm, submit to these directories. Most take under 5 minutes.
+
+For hosted public-data MCPs, also ship normal web surfaces:
+
+- topic page(s), e.g. `/cherry-blossom-forecast`
+- plain text/Markdown answer page(s), e.g. `/sakura-forecast.txt`
+- JSON API(s), e.g. `/api/sakura/forecast`
+- `/llms.txt`, `/sitemap.xml`, `/robots.txt`, and `/health`
+
+This matters because normal ChatGPT web chat is not an arbitrary MCP client. It can cite pages through search; it cannot dynamically register and execute your MCP tools unless the environment supports MCP apps/connectors.
 
 **Smithery — hosted servers (runs on a URL):**
 
@@ -162,7 +179,8 @@ From that point, every `git push` to main triggers a Railway redeploy. All users
 
 | Directory | URL | What you need |
 |---|---|---|
-| mcp.so | mcp.so/submit | GitHub URL + npx config JSON || Glama | glama.ai/mcp/servers | GitHub URL only |
+| mcp.so | mcp.so/submit | GitHub URL + npx config JSON |
+| Glama | glama.ai/mcp/servers | GitHub URL only |
 | PulseMCP | pulsemcp.com | GitHub URL + description |
 | awesome-mcp-servers | Fork punkpeye/awesome-mcp-servers, add one line | `🤖🤖🤖` in PR title |
 
@@ -180,15 +198,15 @@ The skill's publish checklist walks through each one.
 | Server metadata | 30 |
 | Configuration UX | 25 |
 
-**100/100 is achievable.** The "Tool names" sub-score (5pt) rewards a navigable hierarchy using dot notation — `domain.action` format (e.g. `sakura.forecast`, `koyo.spots`, `fruit.farms`). Every tool sharing the same `get_` prefix caps you at 3/5 regardless of how descriptive the names are. Switch to dot notation and the score jumps to 5/5.
+**Client compatibility beats score chasing.** Smithery may reward dotted tool names such as `domain.action`, but some Claude clients are more reliable with underscore names such as `sakura_forecast`. The skill now treats 98/100 with client-compatible tool names as a better outcome than 100/100 with names the target client cannot call.
 
 ---
 
 ## Real result
 
-[japan-seasons-mcp](https://github.com/haomingkoo/japan-seasons-mcp) was built and audited with this skill. It's a live Japan seasonal travel data server: cherry blossoms, autumn leaves, fruit picking, festivals, weather. 12 tools, 1,700+ GPS-tagged locations, real-time JMC forecast data.
+[japan-seasons-mcp](https://github.com/haomingkoo/japan-seasons-mcp) was built and audited with this skill. It's a live Japan seasonal travel data server: cherry blossoms, autumn leaves, fruit picking, festivals, flowers, weather, and AI-search-ready forecast pages. It exposes 17 MCP tools, 1,700+ GPS-tagged locations, real-time JMC forecast data, a hosted `/mcp` endpoint, JSON APIs, and crawlable forecast text for ChatGPT-style search.
 
-Smithery score: **100/100**. Every dimension maxed, including the elusive "Tool names: 5/5" — achieved with dot notation naming (`sakura.forecast`, `koyo.spots`, `fruit.farms`, etc.).
+Smithery score: **98/100** after choosing Claude-compatible underscore tool names over dotted names. The main lesson from production use: getting listed as an MCP is not enough. Public-data MCPs also need citation-friendly web/API surfaces because many users ask through AI search products that cannot execute arbitrary MCP tools.
 
 Live at [seasons.kooexperience.com](https://seasons.kooexperience.com) and on npm as `japan-seasons-mcp`.
 

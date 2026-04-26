@@ -6,6 +6,16 @@ Read this file during Phase 3 (Build) of the CREATE PATH or when fixing code in 
 
 ## package.json
 
+Before scaffolding, check current package versions:
+
+```bash
+npm view @modelcontextprotocol/sdk version
+npm view zod version
+npm view typescript version
+```
+
+Use the latest stable versions unless the existing repo already pins a compatible range.
+
 ```json
 {
   "name": "your-mcp-name",
@@ -25,11 +35,11 @@ Read this file during Phase 3 (Build) of the CREATE PATH or when fixing code in 
     "dev": "tsc --watch"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
-    "zod": "^3.22.0"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "typescript": "^5.0.0"
+    "typescript": "^6.0.3"
   }
 }
 ```
