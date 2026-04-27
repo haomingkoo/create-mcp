@@ -72,6 +72,7 @@ If the server is hosted and exposes public/current data, also produce a **discov
 - JSON API(s) when useful for deterministic citations
 - `/llms.txt`, `/sitemap.xml`, `/robots.txt`, and `/health`
 - ChatGPT app/connector metadata: name, operational description, connector URL
+- A single source-of-truth config for site URLs, MCP endpoint, connector metadata, example locations, timing guidance, and common output copy. Frontend pages, MCP instructions, text endpoints, README snippets, and registry metadata must read from or be checked against that source.
 
 State the boundary explicitly: ChatGPT web chat/search may cite pages, but it cannot call arbitrary MCP tools unless the MCP endpoint is connected as an app/connector or the environment is an MCP client.
 
@@ -95,6 +96,7 @@ Scaffold this structure:
 src/
   index.ts              — McpServer, registerTool, registerPrompt
   lib/
+    site-config.ts      — single source of truth for URLs, connector metadata, examples, and shared copy
     cache.ts            — getOrFetch with TTL constants
     fetch.ts            — safeFetch with timeout
     [domain].ts         — data fetching per domain
@@ -117,6 +119,7 @@ Key things to get right in every build:
 - For hosted public data, provide crawlable pages/APIs for AI search in addition to `/mcp`
 - For ChatGPT, document app/connector setup; do not imply normal ChatGPT web chat can run MCP tools
 - For local stdio servers aimed at nontechnical users, add MCPB packaging guidance
+- Single source of truth: do not hardcode URLs, connector metadata, example cities, timing guidance, or "what tool next" copy separately in frontend and backend. Put them in a shared config/module and render frontend/static pages from tokens or validate them with a build-time check.
 - **API key handling**: if using `required: []` in smithery.yaml (key is optional), the server must handle a missing key gracefully — don't call `process.exit(1)` when the key is absent. Instead, let the handler return `isError: true` with a helpful message. If the server truly cannot function without the key, either set `required: ["apiKey"]` or ensure the `commandFunction` always passes the env var so it's always present when Smithery runs it.
 
 See `references/smithery-config.md` for smithery.yaml and smithery.remote-config.json templates.
@@ -140,6 +143,8 @@ Also check: prompts registered? cache.ts present? static data inside vs outside 
 
 If it is hosted/public, also check: `/health`, `/llms.txt`, `/sitemap.xml`, AI-search topic/text pages, JSON APIs, `search`/`fetch` compatibility, and README language separating web search from MCP tool execution.
 
+Also check for duplicated or drifting copy between frontend, backend, README, and registry files. Canonical URLs, MCP endpoint, ChatGPT connector metadata, example prompts, location examples, seasonal timing guidance, and next-tool instructions should come from one config/module or be enforced by a build-time validation script.
+
 ### Step 2: Score every dimension
 
 Read `references/smithery-config.md` for the full scoring table and score ladder.
@@ -156,6 +161,7 @@ Quick checklist:
 - [ ] Smithery UI: icon + display name + server description (20pt — manual)
 - [ ] Hosted public-data servers expose crawlable AI-search pages/APIs and do not rely on MCP alone for ChatGPT Search users
 - [ ] ChatGPT docs explain app/connector setup instead of implying arbitrary MCP execution in normal chat
+- [ ] Shared metadata/copy source exists and build checks prevent frontend/backend drift
 
 ### Step 3: Fix everything in one pass
 
@@ -173,8 +179,9 @@ Priority order (highest score impact first):
 10. package.json → all metadata fields
 11. smithery.yaml / smithery.remote-config.json → add configSchema with `required: []`
 12. Discovery surfaces → add `/health`, `/llms.txt`, sitemap, robots, text/JSON pages, ChatGPT connector metadata when hosted/public
-13. MCPB → add bundle guidance for local stdio servers targeting Claude Desktop users
-14. README → clear first paragraph, install snippet, tools table, AI-search vs MCP distinction
+13. Centralization → add shared config and build-time copy/metadata checks before polishing UI copy
+14. MCPB → add bundle guidance for local stdio servers targeting Claude Desktop users
+15. README → clear first paragraph, install snippet, tools table, AI-search vs MCP distinction
 
 See `references/typescript-boilerplate.md` for correct code patterns.
 See `references/discovery-guide.md` for public-data adoption patterns.
@@ -219,6 +226,7 @@ Run after Create or Audit is complete.
 - [ ] `npm view <package> version` checked; local version is not already published
 - [ ] `npm outdated --json` checked for stale dependencies
 - [ ] `npm run build` passes with no errors
+- [ ] Centralized-copy/site-config validation passes when the server has frontend or public pages
 - [ ] `npm pack --dry-run` shows the intended files
 - [ ] README has: what it does, install snippet, tools table, hosted endpoint if applicable
 - [ ] `smithery.yaml` or `smithery.remote-config.json` exists

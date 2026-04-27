@@ -36,6 +36,26 @@ Add these alongside `/mcp`:
 - JSON APIs for current data when useful, e.g. `/api/sakura/forecast`
 - `robots.txt` that allows citation/search bots you want to serve
 
+## Single source of truth for public MCPs
+
+Do not maintain the same facts separately in backend output, frontend pages, `llms.txt`, README snippets, ChatGPT connector copy, and registry metadata. Centralize:
+
+- canonical site URL and MCP endpoint
+- AI-search text/JSON URLs
+- ChatGPT app/connector name and operational description
+- example prompts and example locations
+- seasonal timing guidance and data-freshness wording
+- next-tool guidance such as "use sakura_spots for the full list"
+
+Preferred implementation:
+
+1. Put canonical metadata in one module such as `src/lib/site-config.ts` or one JSON config consumed by both server and scripts.
+2. Have backend outputs and server instructions import from that module.
+3. Serve public pages from templates or tokens rendered by the server, instead of hardcoding URLs and connector copy in static HTML.
+4. Add a build-time validation script that fails if public templates hardcode canonical URLs or if `package.json`, `server.json`, README snippets, and frontend templates drift from the source.
+
+This is especially important for hosted MCPs because users compare directory pages, README, frontend pages, ChatGPT connector setup, and actual MCP output. Conflicting copy makes the MCP feel broken even when the tools work.
+
 The plain text summary should be useful without MCP setup. Include:
 
 - Source and freshness timestamp/date

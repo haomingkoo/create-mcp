@@ -46,6 +46,12 @@ Use the latest stable versions unless the existing repo already pins a compatibl
 
 All fields are required for Smithery's Server Metadata score. `homepage` and `repository` alone are worth 10pt.
 
+For hosted servers with frontend/public pages, add a central copy check to `build` after the first working scaffold:
+
+```json
+"build": "tsc && chmod +x dist/index.js && node scripts/check-site-copy.mjs"
+```
+
 ---
 
 ## tsconfig.json
@@ -106,6 +112,59 @@ export async function getOrFetch<T>(key: string, ttlMs: number, fn: () => Promis
   return data;
 }
 ```
+
+---
+
+## src/lib/site-config.ts — hosted/public servers
+
+Create this before writing frontend pages, server instructions, or connector setup docs. It is the single source of truth for values that otherwise drift across backend and frontend.
+
+```typescript
+export const SITE_CONFIG = {
+  name: "Your Product Name",
+  serverName: "your-mcp-name",
+  siteUrl: "https://your-domain.com",
+  mcpPath: "/mcp",
+  connector: {
+    name: "Your Product Name",
+    description:
+      "Use this for [specific current data/tasks]. Best for [high-intent prompts]. Do not use for [out-of-scope tasks].",
+  },
+  pages: {
+    textSummaryPath: "/your-topic.txt",
+    apiPath: "/api/your-topic",
+  },
+  examples: {
+    locations: ["Tokyo", "Kyoto", "Hokkaido"],
+    prompts: ["Where should I view sakura today?"],
+  },
+} as const;
+
+export const SITE_URL = SITE_CONFIG.siteUrl;
+export const MCP_ENDPOINT = `${SITE_CONFIG.siteUrl}${SITE_CONFIG.mcpPath}`;
+export const TEXT_SUMMARY_URL = `${SITE_CONFIG.siteUrl}${SITE_CONFIG.pages.textSummaryPath}`;
+export const API_URL = `${SITE_CONFIG.siteUrl}${SITE_CONFIG.pages.apiPath}`;
+
+export const SITE_PUBLIC_CONFIG = {
+  name: SITE_CONFIG.name,
+  serverName: SITE_CONFIG.serverName,
+  siteUrl: SITE_URL,
+  mcpEndpoint: MCP_ENDPOINT,
+  textSummaryUrl: TEXT_SUMMARY_URL,
+  apiUrl: API_URL,
+  connector: { ...SITE_CONFIG.connector, url: MCP_ENDPOINT },
+} as const;
+```
+
+Use this module from:
+
+- server instructions and tool output copy
+- `/site-config.json`
+- sitemap/robots/llms generation or template rendering
+- ChatGPT connector setup copy
+- build-time validation scripts
+
+Do not copy-paste canonical URLs into static pages without a token/render/check path.
 
 ---
 
