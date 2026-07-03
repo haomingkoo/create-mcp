@@ -28,7 +28,7 @@ Most developers ship something that works locally and then wonder why nobody fin
 
 ## What this skill does
 
-`create-mcp` is a Claude Code skill — a markdown file that gives Claude a structured workflow when you run `/create-mcp`. Claude reads the skill and follows the workflow, asking the right questions, making decisions, and doing the work.
+`create-mcp` is a Claude Code and Codex skill — a markdown workflow that gives the agent a structured process for MCP creation, audit, publishing, and discovery. The agent reads the skill, asks the right questions, makes decisions, and does the work.
 
 Two paths, auto-detected:
 
@@ -40,7 +40,7 @@ Either way, the skill ends with the publish checklist: version bump, npm publish
 
 ---
 
-## Install
+## Install For Claude Code
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/haomingkoo/create-mcp/main/install.sh | sh
@@ -60,6 +60,20 @@ done
 ```
 
 Restart Claude Code. Run `/create-mcp` in any session.
+
+## Install For Codex
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/haomingkoo/create-mcp/main/install-codex.sh | sh
+```
+
+Or from a local checkout:
+
+```bash
+./install-codex.sh
+```
+
+Restart Codex. The Codex skill lives at `codex/create-mcp/SKILL.md` and reuses the same canonical workflow and references as the Claude skill.
 
 ---
 

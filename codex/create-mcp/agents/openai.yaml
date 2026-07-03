@@ -1,0 +1,6 @@
+interface:
+  display_name: "Create MCP"
+  short_description: "Build, audit, and publish MCP servers"
+  default_prompt: "Use $create-mcp to audit this MCP server and make it ready for clients and discovery."
+policy:
+  allow_implicit_invocation: true
