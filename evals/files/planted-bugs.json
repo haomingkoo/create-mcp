@@ -1,0 +1,11 @@
+{
+  "fixture": "evals/files/broken-mcp-index.ts",
+  "planted_bugs": [
+    {
+      "id": "T2-resource-mimetype",
+      "marker": "PLANTED BUG (T2): json resource missing mimeType",
+      "description": "The `cuisines` resource (registered via server.registerResource) returns JSON content but declares no mimeType, in either the registration metadata or the read callback's contents[] entry, so clients can't tell it isn't text/plain.",
+      "eval_id": 4
+    }
+  ]
+}

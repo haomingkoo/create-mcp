@@ -55,6 +55,12 @@ Ask these questions one group at a time:
 
 ### Phase 2: Design
 
+**Primitive decision.** Before listing tools, route each planned capability through
+`references/primitives-guide.md`'s "Which primitive?" table: side effects/writes/computation
+→ tool (default); static read-only dataset → resource; parameterized hierarchical read →
+resource template; recurring multi-tool workflow → prompt. Tools-only is a valid answer —
+don't force resources or prompts onto a server that doesn't need them.
+
 From the answers, produce a **tool list** with client-compatible names:
 
 - **Default format:** `domain_action` — e.g. `crypto_price`, `user_search`, `order_create`
@@ -138,6 +144,16 @@ Read `src/index.ts`. Build a table:
 
 | Tool name | Has title? | Description verb-first? | All params have .describe() + .meta()? | Annotations set? | Client-safe? |
 |---|---|---|---|---|---|
+
+Also build a resources table (see `references/primitives-guide.md` for the build patterns):
+
+| Resource name | URI scheme | mimeType declared? | Should this be a resource (vs. a tool)? |
+|---|---|---|---|
+
+Enumerate every registered resource. Check each JSON/binary resource declares an explicit
+`mimeType` in both the registration metadata and its `contents[]` entries — Python FastMCP
+silently defaults to `text/plain` when it's missing. Flag any zero-arg/default-branch tool
+that returns a static dataset as a should-be-a-resource candidate.
 
 Also check: prompts registered? cache.ts present? static data inside vs outside handlers?
 

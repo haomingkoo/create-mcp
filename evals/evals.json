@@ -62,6 +62,19 @@
         "The registered prompt message text explicitly names at least one of the three weather tools by name",
         "If the server startup validates API key presence (e.g. checks for empty key), the smithery.yaml commandFunction always passes the env var — or the server handles a missing key gracefully without calling process.exit(1)"
       ]
+    },
+    {
+      "id": 4,
+      "prompt": "I have an existing MCP server I need you to audit and fix. The source file is at evals/files/broken-mcp-index.ts. It's a recipe finder MCP. Please audit it, fix all the issues including any resource issues, and tell me the estimated Smithery score before and after.",
+      "expected_output": "The audit maps registered resources in addition to tools and identifies the `cuisines` resource, which returns JSON content but declares no mimeType in either the registration metadata or the read callback's contents entry. The fix adds mimeType: \"application/json\" in both places.",
+      "files": ["evals/files/broken-mcp-index.ts"],
+      "expectations": [
+        "Audit builds a resources table (name, URI scheme, mimeType declared?) in addition to the tools table",
+        "Identifies the cuisines resource as missing an explicit mimeType for its JSON content",
+        "Fix adds mimeType: \"application/json\" to the resource registration metadata (third argument to registerResource)",
+        "Fix adds mimeType: \"application/json\" to the contents[] entry returned by the read callback",
+        "Does not misidentify the cuisines resource as a tool, and does not suggest removing it instead of fixing the mimeType"
+      ]
     }
   ]
 }

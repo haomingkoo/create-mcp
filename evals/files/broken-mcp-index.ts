@@ -1,6 +1,7 @@
 // A deliberately flawed MCP server for eval purposes
 // Issues: no annotations, noun-first descriptions, missing parameter .describe(),
-// no server instructions, no caching, static data loaded per call, get_ naming
+// no server instructions, no caching, static data loaded per call, get_ naming,
+// resource missing mimeType
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -68,6 +69,26 @@ server.registerTool(
     });
     return { content: [{ type: "text", text: JSON.stringify(results) }] };
   }
+);
+
+// Bad: JSON resource but no mimeType declared anywhere — clients can't tell
+// this content isn't plain text
+// PLANTED BUG (T2): json resource missing mimeType
+server.registerResource(
+  "cuisines",
+  "recipes://cuisines",
+  {
+    title: "Available Cuisines",
+    description: "List of cuisine categories in the recipe database",
+  },
+  async (uri) => ({
+    contents: [
+      {
+        uri: uri.href,
+        text: JSON.stringify(["italian", "thai", "mexican", "japanese", "indian"]),
+      },
+    ],
+  })
 );
 
 const transport = new StdioServerTransport();
