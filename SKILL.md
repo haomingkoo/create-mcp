@@ -151,14 +151,14 @@ Read `references/smithery-config.md` for the full scoring table and score ladder
 
 Quick checklist:
 - [ ] Tool names are specific, stable, and compatible with target clients; use `domain_action` unless dotted names are verified safe
-- [ ] Tool descriptions: verb-first, ≤2 sentences, states next tool (12pt)
-- [ ] All params have `.describe()` + `.meta({ title })` (11pt)
-- [ ] All tools have annotations (`readOnlyHint` minimum; `openWorldHint` for APIs) (7pt)
-- [ ] At least 1 prompt registered for a real workflow (5pt)
+- [ ] Tool descriptions: verb-first, ≤2 sentences, states next tool; every param has `.describe()` + `.meta({ title })` (25pt)
+- [ ] All tools have annotations (`readOnlyHint` minimum; `openWorldHint` for APIs) (20pt)
+- [ ] 3-5 workflow prompts registered, each covering a real multi-tool workflow (15pt)
 - [ ] Resources: not a Smithery scoring category — no code-earnable points either way; affects Glama discoverability facets only (see references/smithery-config.md)
-- [ ] package.json: `description`, `keywords`, `author`, `license`, `homepage`, `repository` (10pt)
-- [ ] smithery.yaml or smithery.remote-config.json with `required: []` (25pt)
-- [ ] Smithery UI: icon + display name + server description (20pt — manual)
+- [ ] smithery.yaml or smithery.remote-config.json with `required: []` (15pt; 10pt if any field required)
+- [ ] icon.svg at repo root (10pt)
+- [ ] README: what it does, install, tools, usage (15pt)
+- [ ] package.json: `description`, `keywords`, `author`, `license`, `homepage`, `repository` (feeds README/discovery quality)
 - [ ] Hosted public-data servers expose crawlable AI-search pages/APIs and do not rely on MCP alone for ChatGPT Search users
 - [ ] ChatGPT docs explain app/connector setup instead of implying arbitrary MCP execution in normal chat
 - [ ] Shared metadata/copy source exists and build checks prevent frontend/backend drift
