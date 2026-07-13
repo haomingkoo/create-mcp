@@ -175,7 +175,7 @@ level3() {
   rm -f "$tmp/planted-bugs.json"   # never ship the answer key into the audited dir
   report="$tmp/.audit-report.txt"
 
-  if ! (cd "$tmp" && claude -p --permission-mode acceptEdits --add-dir "$HOME/.claude/skills/create-mcp" "Use the create-mcp skill to audit and fix broken-mcp-index.ts against all quality dimensions, including resources, resource templates, completions, prompts, naming portability, and icon metadata. Report every issue found, before/after Smithery score." > "$report"); then
+  if ! (cd "$tmp" && claude -p "Use the create-mcp skill to audit and fix broken-mcp-index.ts against all quality dimensions, including resources, resource templates, completions, prompts, naming portability, and icon metadata. Report every issue found, before/after Smithery score." --permission-mode acceptEdits --add-dir "$HOME/.claude/skills/create-mcp" > "$report"); then
     check "level 3: headless AUDIT run completed" 1
     return
   fi
