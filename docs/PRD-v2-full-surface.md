@@ -77,7 +77,12 @@ harms:
 
 ### 4.2 SKILL.md — AUDIT path
 New mapping tables for resources/templates/prompts/completions/notifications. New
-checks: capability declaration matches implementation (completions and logging need
+checks: **tool/prompt naming portability — no dots.** The MCP spec permits dots in
+names (charset `A-Za-z0-9_.-`) but the Claude API's tool-name validation does not
+(`[a-zA-Z0-9_-]` only), so dot-namespaced tools break on the largest MCP client.
+Field-verified: a dot-notation rename caused a live Smithery score drop on
+japan-seasons before being reverted to underscores. Rule: underscores always;
+audit flags any dot in a tool or prompt name as a portability bug. Also: capability declaration matches implementation (completions and logging need
 explicit `{}` declarations); `subscribe` and `listChanged` audited as independent flags;
 shared annotations validator; icons; mime_type-default bug; alias/deprecation hygiene
 (sakura-push's `plan_sakura_trip` alias pattern); pagination as ONE cross-cutting check
