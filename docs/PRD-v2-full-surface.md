@@ -155,6 +155,6 @@ frameworks, plain scripts + asserts):
 
 - All 4 E2E levels green in CI-style run (`evals/run.sh` exit 0).
 - AUDIT finds ≥ 90% of planted non-tool bugs on the v2 fixture.
-- sakura-push keeps 100/100 on Smithery after dogfood changes; gains Glama
-  resources/prompts facets.
+- sakura-push scores >= 98/100 on Smithery after dogfood changes (owner-approved
+  tolerance: functionality over score vanity); gains Glama resources/prompts facets.
 - No claim in the skill about registry scoring without a source or an "unverified" flag.
