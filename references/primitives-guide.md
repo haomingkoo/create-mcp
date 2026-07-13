@@ -32,8 +32,8 @@ a tool like `list_flowers()` that takes no meaningful arguments and just returns
 JSON blob, make it a resource instead.
 
 Validated 3x on japan-seasons: `flowers_spots`, `festivals_list`, and `fruit_farms` were
-each originally a zero-arg tool returning static data, and each converted cleanly to a
-resource.
+each a dataset first exposed through tools, and each promoted cleanly to a resource
+(the tools remain for parameterized access; the resources serve the full datasets).
 
 Don't apply this to a tool where the no-arg case is one branch among several live,
 parameterized branches — only convert the capability if there's no meaningful
