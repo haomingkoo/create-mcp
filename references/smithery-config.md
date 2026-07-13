@@ -68,22 +68,18 @@ The `required: []` matters — Smithery awards 15pt for optional config (vs. 10p
 
 ## Smithery scoring reference
 
+**Community-derived rubric** (two independent secondary sources, 2026-07): unverified against a primary Smithery source — re-verify before relying on exact point values.
+
 | Category | Points | How to earn it |
 |---|---|---|
-| Tool descriptions | 12pt | Verb-first, ≤2 sentences, states next tool |
-| Parameter descriptions | 11pt | `.describe()` + `.meta({ title })` on every param |
-| Annotations | 7pt | `readOnlyHint` minimum; `openWorldHint` for external APIs |
-| **Tool names** | **5pt** | Navigable names. Smithery rewards dot notation, but target-client compatibility takes priority. |
-| Prompts | 5pt | Register ≥1 prompt for a real workflow |
-| Resources | 5pt | Awarded automatically — no action needed |
-| Server description | 10pt | Set in Smithery UI settings (not package.json) |
-| Homepage | 10pt | `homepage` field in package.json |
-| Icon | 7pt | Upload in Smithery UI settings |
-| Display name | 3pt | Set in Smithery UI settings |
-| Config schema | 10pt | `smithery.yaml` or `smithery.remote-config.json` present |
-| Optional config | 15pt | All config fields in `required: []` (not required) |
+| Tools with descriptions | 25pt | Every tool has a clear, verb-first description |
+| Tool annotations | 20pt | `readOnlyHint` minimum; `openWorldHint` for external APIs on every tool |
+| Config schema | 15pt / 10pt | `smithery.yaml` or `smithery.remote-config.json` present. 15pt if all fields are optional (`required: []`); 10pt if any field is required. Mutually exclusive — you earn one or the other. |
+| Workflow prompts | 15pt | Register 3–5 prompts, each covering a real multi-tool workflow |
+| Icon | 10pt | `icon.svg` present at repo root |
+| README / documentation | 15pt | Clear README: what it does, install, tools, usage |
 
-**Total: 100pt**
+**Total: 100pt** (using the higher-scoring config-schema outcome)
 
 ---
 
@@ -98,6 +94,13 @@ The `required: []` matters — Smithery awards 15pt for optional config (vs. 10p
 | ~95 | smithery.yaml with configSchema, README polished |
 | ~98 | All code dimensions maxed, Smithery UI metadata not set |
 | **100** | **All scoring dimensions plus Smithery UI icon/display name/description** |
+
+---
+
+## Other registries
+
+- **Glama**: quality score is 100% tool-based (TDQS 70% + Server Coherence 30%). Resources and prompts do not affect the Glama score, but they ARE directory filter facets — servers with resources/prompts are separately filterable and more discoverable.
+- **mcp.so**: ranking is unknown/unverifiable (submission flow 403s automated checks). Don't assume a scoring mechanism.
 
 ---
 

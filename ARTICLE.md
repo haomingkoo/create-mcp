@@ -40,7 +40,7 @@ I hit all of these problems while building [japan-seasons-mcp](https://github.co
 
 **Starting from scratch:**
 
-Claude asks about your data source, what questions users would naturally ask it, whether it needs auth, whether it runs locally or on a server, and how users should discover it. From those answers it proposes a tool structure for review, then builds the full server with all 10 quality dimensions built in from the start. Not as an afterthought.
+Claude asks about your data source, what questions users would naturally ask it, whether it needs auth, whether it runs locally or on a server, and how users should discover it. From those answers it proposes a tool structure for review, then builds the full server with every quality dimension built in from the start. Not as an afterthought.
 
 **Already have a server:**
 
@@ -62,7 +62,7 @@ The skill ends with the full publish checklist: version bump, `npm run build && 
 
 ---
 
-## The 10 dimensions it enforces
+## The dimensions it enforces
 
 | Dimension | Why it matters |
 |---|---|
@@ -70,6 +70,11 @@ The skill ends with the full publish checklist: version bump, `npm run build && 
 | Parameter descriptions | Without `.describe()`, the AI guesses what to pass. |
 | Annotations | Tells clients whether it's safe to retry a call. |
 | Tool titles | Human-readable name shown in client UIs (MCP 2025-06-18 spec). |
+| Static resources | A zero-arg tool returning a fixed dataset should be a resource. Needs an explicit `mimeType`, or Python FastMCP silently serves `text/plain`. |
+| Resource templates | A parameterized read like `spots/{prefecture}` should be a template, not a tool. Its parameter names must match the URI's `{variable}` names exactly. |
+| Completions | Companion to templates and prompts, not a standalone primitive. A mismatched key means the capability never gets declared. |
+| Workflow prompts | 3-5 prompts, each a real multi-tool workflow, not padded to hit a count. |
+| Cross-cutting metadata | Content annotations, icons, no dots in tool or prompt names, and one pagination pattern across every list endpoint. |
 | Server instructions | Routing guide for the AI — call order, what NOT to use it for. |
 | Static data | Load once at startup, not on every tool call. |
 | Caching | One cache miss per TTL window, not one upstream request per tool call. |

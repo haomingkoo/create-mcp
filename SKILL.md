@@ -55,6 +55,12 @@ Ask these questions one group at a time:
 
 ### Phase 2: Design
 
+**Primitive decision.** Before listing tools, route each planned capability through
+`references/primitives-guide.md`'s "Which primitive?" table: side effects/writes/computation
+→ tool (default); static read-only dataset → resource; parameterized hierarchical read →
+resource template; recurring multi-tool workflow → prompt. Tools-only is a valid answer —
+don't force resources or prompts onto a server that doesn't need them.
+
 From the answers, produce a **tool list** with client-compatible names:
 
 - **Default format:** `domain_action` — e.g. `crypto_price`, `user_search`, `order_create`
@@ -121,6 +127,7 @@ Key things to get right in every build:
 - For local stdio servers aimed at nontechnical users, add MCPB packaging guidance
 - Single source of truth: do not hardcode URLs, connector metadata, example cities, timing guidance, or "what tool next" copy separately in frontend and backend. Put them in a shared config/module and render frontend/static pages from tokens or validate them with a build-time check.
 - **API key handling**: if using `required: []` in smithery.yaml (key is optional), the server must handle a missing key gracefully — don't call `process.exit(1)` when the key is absent. Instead, let the handler return `isError: true` with a helpful message. If the server truly cannot function without the key, either set `required: ["apiKey"]` or ensure the `commandFunction` always passes the env var so it's always present when Smithery runs it.
+- Annotations, icons, naming portability, and pagination: see `references/primitives-guide.md`'s Cross-cutting metadata section.
 
 See `references/smithery-config.md` for smithery.yaml and smithery.remote-config.json templates.
 
@@ -139,7 +146,67 @@ Read `src/index.ts`. Build a table:
 | Tool name | Has title? | Description verb-first? | All params have .describe() + .meta()? | Annotations set? | Client-safe? |
 |---|---|---|---|---|---|
 
-Also check: prompts registered? cache.ts present? static data inside vs outside handlers?
+Also build a resources table (see `references/primitives-guide.md` for the build patterns):
+
+| Resource name | URI scheme | mimeType declared? | Should this be a resource (vs. a tool)? |
+|---|---|---|---|
+
+Enumerate every registered resource. Check each JSON/binary resource declares an explicit
+`mimeType` in both the registration metadata and its `contents[]` entries — Python FastMCP
+silently defaults to `text/plain` when it's missing. Flag any zero-arg/default-branch tool
+that returns a static dataset as a should-be-a-resource candidate.
+
+Resource templates are enumerated separately from static resources, via
+`resources/templates/list`, not folded into the resources table above:
+
+| Template name | URI template | List enumerable? | Param names match URI vars? | Completion registered? |
+|---|---|---|---|---|
+
+For each template: confirm every destructured read-callback parameter (TypeScript) or
+function parameter (Python) matches a `{variable}` in the URI template exactly. A
+mismatch is silently `undefined` in TypeScript and a `ValueError` at import time in Python
+FastMCP. Confirm `completions` appears in the server's declared capabilities whenever any
+`complete`/`completable()` callback exists anywhere in the server (template or prompt),
+and is absent when none do; see `references/primitives-guide.md` for why this can
+silently drift even though the SDK usually auto-detects it. Flag any template with a
+free-text (non-enumerable) parameter that has no completion callback as a UX gap: the
+client has no way to help the user fill it in.
+
+Also build a prompts table (see `references/primitives-guide.md`'s Workflow prompts
+section for the sparseness principle and the build patterns):
+
+| Prompt name | Args | Workflow it encodes | Quality (per PROMPT QUALITY checklist) |
+|---|---|---|---|
+
+For each registered prompt:
+- **Single-call check.** If the prompt's messages resolve to exactly one tool call with
+  the prompt's arguments passed straight through and no chaining across multiple tools,
+  flag it as a should-be-a-tool candidate, the same judgment call as a should-be-a-resource
+  zero-arg tool. The fix is to convert it to a tool (better description, better defaults)
+  or remove it, not to keep it registered as a workflow prompt.
+- **Description quality check.** A vague or undescribed prompt (missing `description`, or
+  one that doesn't state the workflow and when to use it) gets a concrete rewrite
+  suggestion, exactly like a weak tool description does in the tools table above, not just
+  a "needs a better description" note.
+- **Naming symmetry check.** Compare prompt names against the domain's tool names: a
+  `verb_noun` prompt in one domain (`plan_sakura_trip`) with no symmetric prompt in a
+  structurally identical sibling domain (no `plan_koyo_trip`) is a coverage gap worth
+  flagging. Any dot in a prompt name is the same Claude-portability bug as a dotted tool
+  name (see the tool naming check above); flag it the same way.
+
+Also check cross-cutting metadata (see `references/primitives-guide.md`'s Cross-cutting
+metadata section for the full write-up):
+- Annotations (`audience`/`priority`/`lastModified`) validated against the shared format on
+  resources, templates, prompt content, and tool result content; not confused with
+  `ToolAnnotations`
+- Icons present: `icons` array on resources/templates where the SDK exposes it, `icon.svg`
+  at the repo root regardless of SDK version
+- Any dot in a tool or prompt name flagged as a portability bug, no exceptions
+- `resources/list`, `resources/templates/list`, `prompts/list`, and `tools/list` all
+  paginate with the same opaque-cursor pattern, or the server's primitive count is small
+  enough that no pagination is needed at all
+
+Also check: cache.ts present? static data inside vs outside handlers?
 
 If it is hosted/public, also check: `/health`, `/llms.txt`, `/sitemap.xml`, AI-search topic/text pages, JSON APIs, `search`/`fetch` compatibility, and README language separating web search from MCP tool execution.
 
@@ -151,14 +218,15 @@ Read `references/smithery-config.md` for the full scoring table and score ladder
 
 Quick checklist:
 - [ ] Tool names are specific, stable, and compatible with target clients; use `domain_action` unless dotted names are verified safe
-- [ ] Tool descriptions: verb-first, ≤2 sentences, states next tool (12pt)
-- [ ] All params have `.describe()` + `.meta({ title })` (11pt)
-- [ ] All tools have annotations (`readOnlyHint` minimum; `openWorldHint` for APIs) (7pt)
-- [ ] At least 1 prompt registered for a real workflow (5pt)
-- [ ] Resources: auto-awarded, no action needed (5pt)
-- [ ] package.json: `description`, `keywords`, `author`, `license`, `homepage`, `repository` (10pt)
-- [ ] smithery.yaml or smithery.remote-config.json with `required: []` (25pt)
-- [ ] Smithery UI: icon + display name + server description (20pt — manual)
+- [ ] Tool descriptions: verb-first, ≤2 sentences, states next tool; every param has `.describe()` + `.meta({ title })` (25pt)
+- [ ] All tools have annotations (`readOnlyHint` minimum; `openWorldHint` for APIs) (20pt)
+- [ ] 3-5 workflow prompts registered, each covering a real multi-tool workflow, scored
+      against the PROMPT QUALITY checklist in `references/primitives-guide.md` (15pt)
+- [ ] Resources: not a Smithery scoring category — no code-earnable points either way; affects Glama discoverability facets only (see references/smithery-config.md)
+- [ ] smithery.yaml or smithery.remote-config.json with `required: []` (15pt; 10pt if any field required)
+- [ ] icon.svg at repo root (10pt)
+- [ ] README: what it does, install, tools, usage (15pt)
+- [ ] package.json: `description`, `keywords`, `author`, `license`, `homepage`, `repository` (feeds README/discovery quality)
 - [ ] Hosted public-data servers expose crawlable AI-search pages/APIs and do not rely on MCP alone for ChatGPT Search users
 - [ ] ChatGPT docs explain app/connector setup instead of implying arbitrary MCP execution in normal chat
 - [ ] Shared metadata/copy source exists and build checks prevent frontend/backend drift
@@ -171,7 +239,8 @@ Priority order (highest score impact first):
 2. Tool descriptions → verb-first, 2 sentences, call-next
 3. Parameter descriptions → `.describe()` + `.meta({ title })` on every input
 4. Annotations → READONLY / READONLY_EXTERNAL / WRITE / DESTRUCTIVE
-5. Prompts → register 1–2 for main workflows
+5. Prompts → register 3-5 for main workflows; convert single-call prompts to tools
+   instead of padding the count
 6. Server instructions → add `instructions` to McpServer if missing
 7. Static data → move any per-call file reads to module level
 8. Caching → wrap all live API calls in `getOrFetch()`

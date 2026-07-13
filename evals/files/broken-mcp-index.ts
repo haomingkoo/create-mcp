@@ -1,12 +1,20 @@
 // A deliberately flawed MCP server for eval purposes
 // Issues: no annotations, noun-first descriptions, missing parameter .describe(),
-// no server instructions, no caching, static data loaded per call, get_ naming
+// no server instructions, no caching, static data loaded per call, get_ naming,
+// resource missing mimeType, template param/URI variable mismatch, completions
+// capability undeclared, single-call prompt that should be a tool, dotted tool
+// name (Claude API portability), missing icon metadata
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { readFileSync } from "fs";
 
+// PLANTED BUG (T5b): missing icon metadata
+// No registered tool, resource, template, or prompt in this file declares an `icons`
+// array (SEP-973), and there is no icon.svg at the repo root for Smithery's icon
+// category. Absence-type bug: nothing here to rename, the gap is that no icon
+// metadata exists anywhere in this server.
 const server = new McpServer({ name: "recipe-finder", version: "0.1.0" });
 
 server.registerTool(
@@ -47,8 +55,9 @@ server.registerTool(
   }
 );
 
+// PLANTED BUG (T5a): dotted tool name breaks Claude API
 server.registerTool(
-  "search_by_ingredient",
+  "recipes.search",
   {
     description: "Allows searching for recipes using ingredient names as search terms",
     inputSchema: {
@@ -68,6 +77,104 @@ server.registerTool(
     });
     return { content: [{ type: "text", text: JSON.stringify(results) }] };
   }
+);
+
+// Bad: JSON resource but no mimeType declared anywhere — clients can't tell
+// this content isn't plain text
+// PLANTED BUG (T2): json resource missing mimeType
+server.registerResource(
+  "cuisines",
+  "recipes://cuisines",
+  {
+    title: "Available Cuisines",
+    description: "List of cuisine categories in the recipe database",
+  },
+  async (uri) => ({
+    contents: [
+      {
+        uri: uri.href,
+        text: JSON.stringify(["italian", "thai", "mexican", "japanese", "indian"]),
+      },
+    ],
+  })
+);
+
+// PLANTED BUG (T3a): template param/URI variable mismatch
+server.registerResource(
+  "cuisine-recipes",
+  new ResourceTemplate("recipes://cuisine/{cuisineSlug}", { list: undefined }),
+  {
+    title: "Recipes by Cuisine",
+    description: "All recipes in one cuisine category",
+    mimeType: "application/json",
+  },
+  async (uri, { cuisine }) => {
+    // Bad: `cuisine` is always undefined, the URI template variable is `cuisineSlug`
+    const recipes = JSON.parse(readFileSync("data/recipes.json", "utf-8"));
+    const filtered = recipes.filter((r: any) => r.cuisine === cuisine);
+    return {
+      contents: [
+        { uri: uri.href, mimeType: "application/json", text: JSON.stringify(filtered) },
+      ],
+    };
+  }
+);
+
+// PLANTED BUG (T3b): complete map key mismatches URI variable, completions never enabled
+server.registerResource(
+  "ingredient-info",
+  new ResourceTemplate("recipes://ingredient/{ingredientName}", {
+    list: undefined,
+    complete: {
+      // Bad: key must match the URI template variable exactly ("ingredientName"),
+      // so this callback never fires and the completions capability never gets declared
+      ingredient: async (value: string) => {
+        const names = ["basil", "garlic", "ginger", "chili", "turmeric"];
+        return names.filter((n) => n.startsWith(value.toLowerCase()));
+      },
+    },
+  }),
+  {
+    title: "Ingredient Info",
+    description: "Substitution and pairing notes for one ingredient",
+    mimeType: "application/json",
+  },
+  async (uri, { ingredientName }) => {
+    const info: Record<string, string> = {
+      basil: "Pairs with tomato and mozzarella; substitute with oregano.",
+      garlic: "Pairs with ginger and chili; substitute with garlic powder.",
+    };
+    return {
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "application/json",
+          text: JSON.stringify(info[ingredientName] ?? null),
+        },
+      ],
+    };
+  }
+);
+
+// PLANTED BUG (T4): single-call prompt that should be a tool
+server.registerPrompt(
+  "recipe_detail_prompt",
+  {
+    description: "Prompt for recipe detail",
+    argsSchema: {
+      id: z.string(),
+    },
+  },
+  ({ id }) => ({
+    // Bad: this is one tool call with the argument passed straight through,
+    // no chaining, no workflow, and the description is vague/noun-first
+    messages: [
+      {
+        role: "user",
+        content: { type: "text", text: `Call get_recipe_detail with id ${id}.` },
+      },
+    ],
+  })
 );
 
 const transport = new StdioServerTransport();

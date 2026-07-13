@@ -62,6 +62,63 @@
         "The registered prompt message text explicitly names at least one of the three weather tools by name",
         "If the server startup validates API key presence (e.g. checks for empty key), the smithery.yaml commandFunction always passes the env var — or the server handles a missing key gracefully without calling process.exit(1)"
       ]
+    },
+    {
+      "id": 4,
+      "prompt": "I have an existing MCP server I need you to audit and fix. The source file is at evals/files/broken-mcp-index.ts. It's a recipe finder MCP. Please audit it, fix all the issues including any resource issues, and tell me the estimated Smithery score before and after.",
+      "expected_output": "The audit maps registered resources in addition to tools and identifies the `cuisines` resource, which returns JSON content but declares no mimeType in either the registration metadata or the read callback's contents entry. The fix adds mimeType: \"application/json\" in both places.",
+      "files": ["evals/files/broken-mcp-index.ts"],
+      "expectations": [
+        "Audit builds a resources table (name, URI scheme, mimeType declared?) in addition to the tools table",
+        "Identifies the cuisines resource as missing an explicit mimeType for its JSON content",
+        "Fix adds mimeType: \"application/json\" to the resource registration metadata (third argument to registerResource)",
+        "Fix adds mimeType: \"application/json\" to the contents[] entry returned by the read callback",
+        "Does not misidentify the cuisines resource as a tool, and does not suggest removing it instead of fixing the mimeType"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "I have an existing MCP server I need you to audit and fix. The source file is at evals/files/broken-mcp-index.ts. It's a recipe finder MCP. Please audit it, fix all the issues including any resource template and completions issues, and tell me the estimated Smithery score before and after.",
+      "expected_output": "The audit enumerates resource templates separately from static resources (resources/templates/list) and identifies two issues: the cuisine-recipes template's read callback destructures `cuisine` while the URI template variable is `cuisineSlug`, and the ingredient-info template's `complete` map key `ingredient` doesn't match its URI template variable `ingredientName`, so the completions capability never gets declared even though the callback exists. Both are fixed: the read callback is corrected to destructure `cuisineSlug`, and the complete map key is corrected to `ingredientName`.",
+      "files": ["evals/files/broken-mcp-index.ts"],
+      "expectations": [
+        "Audit builds a resource templates table separate from the static resources table, noting param/URI variable name match and completion registration",
+        "Identifies the cuisine-recipes template's read callback destructuring `cuisine` when the URI template variable is `cuisineSlug`",
+        "Fix renames the destructured parameter to `cuisineSlug` (or renames the URI template variable to `cuisine`, but not both diverging)",
+        "Identifies the ingredient-info template's complete map key `ingredient` as not matching the URI template variable `ingredientName`",
+        "Fix renames the complete map key to `ingredientName` so the callback is reachable and the completions capability gets declared",
+        "Does not conflate the two bugs: the cuisine-recipes fix does not touch the complete map, and the ingredient-info fix does not touch the read callback destructuring",
+        "Confirms (or notes as verification) that after the fix, completions appears in the server's declared capabilities"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "I have an existing MCP server I need you to audit and fix. The source file is at evals/files/broken-mcp-index.ts. It's a recipe finder MCP. Please audit it, fix all the issues including any prompt issues, and tell me the estimated Smithery score before and after.",
+      "expected_output": "The audit builds a prompts table and identifies the recipe_detail_prompt prompt as a single-call prompt that wraps exactly one tool call (get_recipe_detail) with its argument passed straight through, with no multi-tool workflow. The audit also flags its vague, noun-first description ('Prompt for recipe detail') the same way a weak tool description would be flagged, and provides a concrete rewrite. The fix converts the prompt into a tool (or folds its behavior into the existing get_recipe_detail tool) rather than keeping it as a workflow prompt, and does not simply pad the prompt count to hit the 3-5 target.",
+      "files": ["evals/files/broken-mcp-index.ts"],
+      "expectations": [
+        "Audit builds a prompts table (name, args, workflow it encodes, quality) in addition to the tools, resources, and resource templates tables",
+        "Identifies recipe_detail_prompt as a single-call prompt that should be a tool: its messages resolve to exactly one tool call (get_recipe_detail) with the id argument passed straight through, no chaining across multiple tools",
+        "Flags the prompt's description ('Prompt for recipe detail') as vague/noun-first and provides a concrete rewrite, not just a note that it needs a better description",
+        "Fix converts recipe_detail_prompt into a tool (or removes it in favor of the existing get_recipe_detail tool) instead of leaving it registered as a workflow prompt",
+        "Does not misidentify recipe_detail_prompt as a legitimate workflow prompt, and does not count it toward the 3-5 workflow-prompt target",
+        "Provides a before/after estimated Smithery score"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "I have an existing MCP server I need you to audit and fix. The source file is at evals/files/broken-mcp-index.ts. It's a recipe finder MCP. Please audit it, fix all the issues including any naming portability or icon metadata issues, and tell me the estimated Smithery score before and after.",
+      "expected_output": "The audit flags the recipes.search tool's dotted name as a Claude API portability bug (the MCP spec allows dots but Claude's tool-name validation charset does not) and renames it to an underscore form such as recipes_search. The audit also flags the absence of any icons array on tools, resources, templates, and prompts, and the absence of an icon.svg at the repo root, and suggests adding icon metadata: icon.svg at minimum, icons arrays where the SDK version supports them.",
+      "files": ["evals/files/broken-mcp-index.ts"],
+      "expectations": [
+        "Identifies the recipes.search tool name as containing a dot and flags it as a client-portability bug, not just a style preference",
+        "Fix renames recipes.search to an underscore name such as recipes_search or recipe_search, with no dots remaining in the name",
+        "States that the MCP spec charset allows dots but the Claude API's tool-name validation charset does not, as the reason for the rename",
+        "Identifies the absence of any icons array across all registered tools, resources, templates, and prompts as a gap, not just silence",
+        "Identifies the absence of an icon.svg at the repo root and suggests adding one for the Smithery icon.svg category",
+        "Does not conflate the icons array (SEP-973 metadata field) with the icon.svg repo-root file, treating them as two distinct fixes",
+        "Provides a before/after estimated Smithery score"
+      ]
     }
   ]
 }

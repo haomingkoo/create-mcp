@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  evals:
+    name: Eval harness (levels 0-1)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Static checks + live fixture verification. Headless levels stay local
+      # (RUN_HEADLESS unset): CI never spends API tokens.
+      - run: bash evals/run.sh
+
+  install-smoke:
+    name: Installer lands the skill
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # install.sh curls from GitHub main, so its CI test is syntax-only
+      # (covered in run.sh level 0). install-codex.sh has a local-copy mode:
+      # smoke-test that the skill actually lands, per the build-then-smoke rule.
+      - run: |
+          export HOME="$(mktemp -d)"
+          bash install-codex.sh
+          test -s "$HOME/.codex/skills/create-mcp/SKILL.md"
+          test -s "$HOME/.codex/skills/create-mcp/references/primitives-guide.md"
+          echo "skill landed complete"
+
+  secrets:
+    name: Secret detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,586 @@
+# Primitives Guide
+
+Read this during Phase 2 (Design) of the CREATE PATH to decide which MCP primitive each
+planned capability should be, during Phase 3 (Build) for the v1 SDK snippets, and during
+the AUDIT PATH resources check.
+
+---
+
+## Which primitive?
+
+| Primitive | Use when | Status |
+|---|---|---|
+| **Tool** (default) | Any action, side effect, write, or computation. Most capabilities are tools. | see `references/typescript-boilerplate.md` |
+| **Resource** | A static, read-only dataset — same content every call, no meaningful parameters. | covered below |
+| **Resource template** | A parameterized, hierarchical read — one string arg drives a listing (e.g. `docs://{category}`). | covered below |
+| **Prompt** | A recurring workflow that chains multiple tools in a known order. | covered below |
+
+**Tools-only is a valid, common answer.** Stripe's MCP server exposes only tools ("The
+server exposes the following MCP tools") — a transactional API has no static,
+URI-addressable data worth modeling as a resource. Don't force resources or prompts onto a
+server that doesn't need them.
+
+---
+
+## Static resources
+
+### When the heuristic fires
+
+Fires when a tool's zero-arg or default-branch call would return a static dataset: the
+same content on every call, no parameter that changes the result. If you're about to write
+a tool like `list_flowers()` that takes no meaningful arguments and just returns a fixed
+JSON blob, make it a resource instead.
+
+Validated 3x on japan-seasons: `flowers_spots`, `festivals_list`, and `fruit_farms` were
+each a dataset first exposed through tools, and each promoted cleanly to a resource
+(the tools remain for parameterized access; the resources serve the full datasets).
+
+Don't apply this to a tool where the no-arg case is one branch among several live,
+parameterized branches — only convert the capability if there's no meaningful
+parameterization at all.
+
+### TypeScript SDK v1
+
+```typescript
+server.registerResource(
+  "flowers",
+  "seasons://flowers",
+  {
+    title: "Seasonal Flowers",
+    description: "Current blooming flowers across Japan by region.",
+    mimeType: "application/json",
+  },
+  async (uri) => ({
+    contents: [
+      {
+        uri: uri.href,
+        mimeType: "application/json",
+        text: JSON.stringify(FLOWERS_DATA),
+      },
+    ],
+  })
+);
+```
+
+Signature: `registerResource(name, uri, {title, description, mimeType}, readCallback)`.
+`mimeType` belongs in both the registration metadata and each `contents[]` entry the
+callback returns — the SDK does not propagate one from the other. Binary content uses
+`blob` (base64) in the content entry instead of `text`.
+
+### Python FastMCP v1
+
+```python
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("your-mcp-name")
+
+@mcp.resource(
+    "seasons://flowers",
+    name="flowers",
+    title="Seasonal Flowers",
+    description="Current blooming flowers across Japan by region.",
+    mime_type="application/json",  # REQUIRED for JSON/binary — see gotcha below
+)
+def flowers() -> dict:
+    return FLOWERS_DATA
+```
+
+**Gotcha, called out loudly: FastMCP silently defaults every resource to `text/plain`.**
+`mime_type` is an optional keyword with no inference from the return type: return a `dict`
+and the content still gets served as `text/plain` unless `mime_type` is passed explicitly.
+Any JSON or binary resource MUST pass `mime_type` (`"application/json"`, `"image/png"`,
+etc.). This is a real bug class, not a style nit — it's the exact bug the AUDIT path checks
+for, and the one planted in `evals/files/broken-mcp-index.ts` (T2).
+
+### Custom URI scheme
+
+Use a `scheme://noun` pattern specific to the server's domain, not a generic one:
+
+- `seasons://flowers`, `seasons://festivals` (japan-seasons)
+- `docs://readme`, `stats://catalog` (generic examples)
+
+Avoid using `resource://` or `data://` as the scheme itself — it tells the client nothing
+about what the resource is. Keep the noun consistent with how the client refers to it in
+conversation.
+
+### Capability note: subscribe / listChanged
+
+`resources.subscribe` and `resources.listChanged` are independent optional capability
+flags. Declaring one does not imply the other, and neither is required for a working
+resource.
+
+- Plain list + read (the case covered above) needs **neither** flag.
+- `listChanged`: declare only if the server calls `server.sendResourceListChanged()` when
+  the resource set actually changes at runtime (rare for static resources).
+- `subscribe`: declare only if the server implements `resources/subscribe` and
+  `resources/unsubscribe` request handlers and pushes `notifications/resources/updated`.
+
+Declaring a flag without the matching implementation is an AUDIT-path bug: capability
+declared but not implemented.
+
+---
+
+## Resource templates
+
+### When the heuristic fires
+
+Fires when a capability is a **read-only tool with exactly one or a few string
+parameters that select from a finite, hierarchical space**, where the parameter narrows a
+listing rather than triggering a side effect. `seasons://spots/{prefecture}` (viewing
+spots in one prefecture) and `docs://{category}` (documents in one category) are template
+shapes. If the capability would otherwise be `list_x(category: string)` with no other
+live branches, it's a template, not a tool.
+
+The canonical real-world case is GitHub's official MCP server: its repository-files-at-refs
+resources are addressed as templates keyed by owner/repo/ref/path, so the URI itself is
+the read, not a tool call with the same arguments.
+
+Don't apply this to a capability that also writes, ranks/scores results, or takes
+non-hierarchical filter combinations; those stay tools.
+
+### RFC 6570 URI template syntax
+
+Resource template URIs follow [RFC 6570](https://www.rfc-editor.org/rfc/rfc6570). The
+forms both v1 SDKs document and handle reliably:
+
+| Form | Meaning | Example |
+|---|---|---|
+| `{var}` | Simple string expansion, stops at `/` | `seasons://spots/{prefecture}` |
+| `{+var}` | Reserved expansion, allows `/` inside the value | `docs://{+path}` |
+| `{/var}` | Path-segment expansion | `docs{/category}` |
+| `{?var}` | Query-parameter expansion | `search://items{?query}` |
+
+Stick to plain `{var}` unless you've confirmed the SDK version and target client both
+handle the extended operators. It's the form used in every template example in both
+SDKs' own docs, and the one guaranteed to round-trip.
+
+### TypeScript SDK v1
+
+```typescript
+import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+
+server.registerResource(
+  "spots-by-prefecture",
+  new ResourceTemplate("seasons://spots/{prefecture}", {
+    list: undefined, // REQUIRED key, see gotcha below
+  }),
+  {
+    title: "Viewing Spots by Prefecture",
+    description: "Cherry blossom viewing spots in one prefecture.",
+    mimeType: "application/json",
+  },
+  async (uri, { prefecture }) => ({
+    contents: [
+      {
+        uri: uri.href,
+        mimeType: "application/json",
+        text: JSON.stringify(getSpots(prefecture)),
+      },
+    ],
+  })
+);
+```
+
+**Gotcha, called out loudly: `list` is a REQUIRED key on the `ResourceTemplate` options
+object, there is no default.** If the instance space is enumerable, pass a `list`
+callback that returns `{ resources: [...] }` so clients can discover instances via
+`resources/list`. If it isn't enumerable (an unbounded free-text space, e.g. arbitrary
+repo paths), pass `list: undefined` explicitly. Omitting the key entirely is a
+TypeScript compile error, not a silent default.
+
+The read callback's second argument is an object keyed by the URI template's variable
+names. **The destructured parameter names must match the `{variable}` names in the URI
+template exactly**: `{prefecture}` in the URI means the callback destructures
+`{ prefecture }`, not `{ prefectureName }` or any other name. A mismatch doesn't throw:
+the destructured value is silently `undefined` and the handler runs with a missing
+argument. This is the exact bug planted as T3a in `evals/files/broken-mcp-index.ts`.
+
+### Python FastMCP v1
+
+```python
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("your-mcp-name")
+
+@mcp.resource(
+    "seasons://spots/{prefecture}",
+    name="spots-by-prefecture",
+    title="Viewing Spots by Prefecture",
+    description="Cherry blossom viewing spots in one prefecture.",
+    mime_type="application/json",
+)
+def spots_by_prefecture(prefecture: str) -> dict:
+    return get_spots(prefecture)
+```
+
+**Function parameter names must match the URI template variables exactly.** Unlike the
+TypeScript SDK's silent-`undefined` failure mode, FastMCP enforces this at decoration
+time: a placeholder like `{prefecture}` paired with a function parameter named `district`
+raises `ValueError` when the module loads, before the server ever starts. Stricter than
+TypeScript here, but still worth an explicit AUDIT check; don't rely on import-time
+errors alone if the audit is reading source without executing it.
+
+---
+
+## Workflow prompts
+
+### The sparseness principle
+
+Prompts are the rarest primitive in practice. GitHub's official MCP server ships 2 prompts
+against 50+ tools. The only other evidenced pattern is the Fetch reference server's 1:1
+tool/prompt pair, and even that is not single-call convenience: the `fetch` prompt calls
+the fetch logic directly with a manual user agent and skips the robots.txt permission
+check the `fetch` tool enforces, a genuinely different workflow, not a redundant wrapper
+around the same tool call (verified against `modelcontextprotocol/servers`, `src/fetch`).
+
+Register a prompt only for a recurring workflow that chains multiple tools in a known
+order. Never register one as a convenience wrapper around a single tool call with the
+prompt's arguments passed straight through; that capability belongs in the tool itself
+(a better description, better defaults) or nowhere.
+
+### When the heuristic fires
+
+- Mine `instructions` / tool-routing prose for "use X then Y" chains. A documented
+  sequence of two or more tool calls in a fixed order is a prompt candidate; a single verb
+  is not.
+- Check tool/prompt naming symmetry across paired domains. If one domain has a workflow
+  prompt (`plan_sakura_trip`) and a structurally identical sibling domain has no
+  equivalent (no `plan_koyo_trip`), that asymmetry is worth flagging during an audit; it's
+  exactly how the sakura/koyo gap was found on sakura-push.
+
+### Smithery context
+
+Workflow prompts are the 15pt Smithery scoring category (community-derived rubric, see
+`smithery-config.md`). The target is 3-5 prompts, each covering a real multi-tool
+workflow, not 3-5 prompts padded to hit a count.
+
+### TypeScript SDK v1
+
+```typescript
+import { completable } from "@modelcontextprotocol/sdk/server/completable.js";
+import { z } from "zod";
+
+server.registerPrompt(
+  "plan_koyo_trip",
+  {
+    title: "Plan a Koyo Trip",
+    description:
+      "Chain forecast lookup, best-date ranking, and spot search into one autumn-leaves itinerary for a prefecture.",
+    argsSchema: {
+      prefecture: completable(
+        z.string().describe("Japanese prefecture name, e.g. Kyoto"),
+        (value) => PREFECTURES.filter((p) => p.startsWith(value))
+      ),
+    },
+  },
+  ({ prefecture }) => ({
+    messages: [
+      {
+        role: "user",
+        content: {
+          type: "text",
+          text: `Plan an autumn-leaves viewing trip to ${prefecture}.`,
+        },
+      },
+      {
+        role: "assistant",
+        content: {
+          type: "text",
+          text: `I'll call koyo_forecast for ${prefecture}, then koyo_best_dates to narrow the window, then koyo_spots for exact locations.`,
+        },
+      },
+    ],
+  })
+);
+```
+
+`argsSchema` is a raw shape, an object of Zod schemas keyed by argument name, the same
+convention `registerTool`'s `inputSchema` uses, not a `z.object(...)` instance (verified
+against `typescript-sdk` `v1.29.0`, `src/server/mcp.ts`). The callback returns a
+`GetPromptResult`: a `messages` array of `{role, content}` pairs where `role` is `"user"`
+or `"assistant"` and `content` can be text, image, audio, a resource link, or an embedded
+resource. Use multiple messages, not one long string, whenever the workflow has a real
+handoff: seeding the assistant's next move keeps the model from re-deriving the tool order
+itself.
+
+### Python FastMCP v1
+
+```python
+from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.prompts.base import AssistantMessage, Message, UserMessage
+
+mcp = FastMCP("your-mcp-name")
+
+@mcp.prompt(
+    title="Plan a Koyo Trip",
+    description="Chain forecast lookup, best-date ranking, and spot search into one autumn-leaves itinerary for a prefecture.",
+)
+def plan_koyo_trip(prefecture: str) -> list[Message]:
+    return [
+        UserMessage(f"Plan an autumn-leaves viewing trip to {prefecture}."),
+        AssistantMessage(
+            f"I'll call koyo_forecast for {prefecture}, then koyo_best_dates, "
+            "then koyo_spots for exact locations."
+        ),
+    ]
+```
+
+`@mcp.prompt` infers arguments from the function signature, the same as `@mcp.tool`; it
+has no `arguments` parameter of its own (verified against `python-sdk` `v1.28.1`,
+`server.py`). A function can return a plain `str` (auto-wrapped as a single `UserMessage`)
+for a genuinely single-message prompt, or `list[Message]` for the multi-message,
+role-tagged case above. `UserMessage`/`AssistantMessage` accept a plain string and wrap it
+in `TextContent` for you (verified against `prompts/base.py`). FastMCP has no
+`completable()` equivalent for prompt arguments in this SDK version; if a prompt needs
+argument completion, register it through the separate `@mcp.completion()` handler instead.
+
+### Embedded resources in prompt messages
+
+When the workflow's messages need to reference data the server already exposes as a
+resource, embed it rather than re-serializing the same content as a second copy of text:
+
+```typescript
+{
+  role: "user",
+  content: {
+    type: "resource",
+    resource: {
+      uri: "seasons://spots/kyoto",
+      mimeType: "application/json",
+      text: JSON.stringify(getSpots("kyoto")),
+    },
+  },
+}
+```
+
+This is the `EmbeddedResourceSchema` content type (verified against `typescript-sdk`
+`v1.29.0`, `src/types.ts`): `type: "resource"` plus a `resource` field holding the same
+`TextResourceContents`/`BlobResourceContents` shape a resource read callback returns. Use
+it when the prompt operates on server data the client could otherwise fetch via
+`resources/read`, not for data that only exists inside the prompt call.
+
+### PROMPT QUALITY checklist
+
+Mirror the tool-quality bar onto every registered prompt:
+
+- [ ] Title and description state the workflow's purpose and when to use it, the same bar
+      as a tool description, not "helper prompt" or "does the workflow"
+- [ ] Every argument is described (`.describe()` in TypeScript, a clear parameter name and
+      docstring in Python), not a bare type with no explanation
+- [ ] Free-text arguments are wrapped in `completable()` (TypeScript) wherever the value
+      space is finite; open-ended free text with no completion is the same UX gap as an
+      uncompletable template parameter
+- [ ] Multi-message, role-tagged structure is used where the workflow warrants a handoff
+      (see the TypeScript/Python snippets above), not a single-string blob for a
+      genuinely multi-step workflow
+- [ ] Naming is `verb_noun`, no dots, and symmetric with the paired tool domain (a dotted
+      prompt name is the same Claude-portability bug as a dotted tool name)
+
+---
+
+## Completions
+
+Completions are a **companion to resource templates and prompts, never a standalone
+primitive.** GitHub's official MCP server is the canonical case: it implements
+`completion/complete` only for the path-segment arguments of its resource templates
+(owner, repo, branch, sha, tag, path, PR number), nothing else in the server uses
+completions. If a server has no template with a free-text parameter and no prompt with an
+open-ended argument, it has nothing to complete.
+
+### Two distinct mechanisms, don't conflate them
+
+| Mechanism | Wraps | Declared inside |
+|---|---|---|
+| `completable(schema, cb)` | A **prompt argument's** zod schema | `argsSchema` passed to `registerPrompt` |
+| `complete: { param: cb }` | A **resource template's** URI variables | The second argument of the `ResourceTemplate` constructor |
+
+```typescript
+import { completable } from "@modelcontextprotocol/sdk/server/completable.js";
+import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
+
+// Mechanism 1: completable() wraps a PROMPT argument
+server.registerPrompt(
+  "plan_koyo_trip",
+  {
+    description: "Plan an autumn-leaves viewing trip.",
+    argsSchema: {
+      prefecture: completable(z.string(), (value) =>
+        PREFECTURES.filter((p) => p.startsWith(value))
+      ),
+    },
+  },
+  ({ prefecture }) => ({ /* ... */ })
+);
+
+// Mechanism 2: the `complete` map on a ResourceTemplate's constructor options
+new ResourceTemplate("seasons://spots/{prefecture}", {
+  list: undefined,
+  complete: {
+    prefecture: async (value) =>
+      PREFECTURES.filter((p) => p.startsWith(value)),
+  },
+});
+```
+
+Both callbacks share the same `(value, context?)` signature, but they're wired into
+different constructors and cover different primitives: fixing a prompt argument's
+completion doesn't touch a template's, and vice versa.
+
+### Capability declaration
+
+`McpServer`'s high-level API additively merges `completions: {}` into the advertised
+capabilities the first time it detects a real `completable()` field or a template
+`complete` callback, so you don't have to declare it by hand in the common case. But the
+template-side detection keys off an **exact match** between the `complete` map's keys and
+the URI template's real variable names, the same name-matching contract as the read
+callback, above. A typo'd key means the callback is present in source but never wired up:
+the SDK never finds a matching variable, never enables the completion handler, and the
+server never advertises `completions` even though the code looks complete. That is the
+T3b bug planted in the fixture: implemented, but the capability a client needs in order
+to discover it is never declared.
+
+The **low-level `Server` class has no such auto-detection at all.** Capabilities there
+are never inferred from registered handlers; every capability, `completions` included,
+must be passed to the constructor explicitly:
+
+```typescript
+new Server({ name: "s", version: "0" }, { capabilities: { completions: {} } });
+```
+
+Using a low-level completion handler without declaring the capability fails at request
+time, not at startup, another reason to check the declared capabilities directly during
+an audit rather than assuming a handler's presence is enough.
+
+### Results cap at 100
+
+A completion response's `values` array is capped at 100 items regardless of how many
+matches exist; `total` and `hasMore` describe the full match count so clients know there
+is more even though only the first 100 come back. Sort or rank before truncating; don't
+return an arbitrary 100.
+
+---
+
+## Cross-cutting metadata
+
+These four concerns apply across every primitive above rather than to just one. Documented
+once here; SKILL.md's CREATE and AUDIT paths and `typescript-boilerplate.md` reference this
+section instead of repeating it three times.
+
+### Annotations: audience, priority, lastModified
+
+One shared annotations format appears on resources, resource templates, prompt message
+content, and tool result content blocks alike:
+
+```typescript
+{
+  audience?: ("user" | "assistant")[];
+  priority?: number;      // 0.0 to 1.0, clamped by the schema (z.number().min(0).max(1))
+  lastModified?: string;  // ISO 8601 datetime
+}
+```
+
+Verified against `typescript-sdk` `v1.29.0`, `src/types.ts`: `AnnotationsSchema`, reused
+inside `ResourceSchema`, `ResourceTemplateSchema`, `TextContentSchema`, `ImageContentSchema`,
+and `EmbeddedResourceSchema`.
+
+This is a different concept from `ToolAnnotations` (`readOnlyHint`, `destructiveHint`,
+`idempotentHint`, `openWorldHint`; the ones already behind `typescript-boilerplate.md`'s
+`READONLY`/`WRITE`/`DESTRUCTIVE` constants). Same word, two unrelated shapes.
+`ToolAnnotations` describes a tool's behavior and lives on the tool registration itself; the
+audience/priority/lastModified annotations describe content relevance and live on resources,
+templates, and individual content blocks. One validator concept, two call sites:
+
+- **Resources and templates.** `registerResource`'s config object is `ResourceMetadata`
+  (`Omit<Resource, 'uri' | 'name'>`), and `Resource` carries `annotations` directly. Set it
+  the same way `mimeType` is set today:
+
+  ```typescript
+  server.registerResource(
+    "categories",
+    "domain://categories",
+    {
+      title: "Item Categories",
+      mimeType: "application/json",
+      annotations: { audience: ["assistant"], priority: 0.3 },
+    },
+    async (uri) => ({ /* ... */ })
+  );
+  ```
+
+- **Tool results and prompt messages.** There's no config field for this case;
+  `annotations` goes directly on the content block the handler returns (`TextContent`,
+  `ImageContent`, `EmbeddedResource`), because that's where the schema puts it:
+
+  ```typescript
+  return {
+    content: [
+      { type: "text", text: summary, annotations: { audience: ["user"], priority: 0.8 } },
+    ],
+  };
+  ```
+
+AUDIT check: a `priority` outside 0.0 to 1.0 or an `audience` value other than `"user"` or
+`"assistant"` fails the schema at the client, not silently. Flag it as a validation bug, not
+a style nit.
+
+### Icons (SEP-973)
+
+`icons` is an array of `{ src, mimeType?, sizes?, theme? }` objects, present at the wire
+level on tools, resources, resource templates, and prompts. Verified against
+`typescript-sdk` `v1.29.0`, `src/types.ts`: `IconSchema`/`IconsSchema`, embedded in
+`ToolSchema`, `ResourceSchema`, `ResourceTemplateSchema`, and `PromptSchema`. It's a cheap
+metadata win when it's reachable: one `src` URL per icon, done.
+
+**Gotcha, called out loudly: the icons array is not reachable from every primitive's
+convenience API yet.** `registerResource`'s config accepts `icons` today, the same way it
+accepts `annotations` above, because it's the same `Omit<Resource, 'uri' | 'name'>` shape.
+`registerTool`'s and `registerPrompt`'s convenience config objects do not expose an `icons`
+field in `v1.29.0`, confirmed by reading `src/server/mcp.d.ts` directly: `registerTool`'s
+config is `{ title?, description?, inputSchema?, outputSchema?, annotations?:
+ToolAnnotations, _meta? }`, and `registerPrompt`'s is `{ title?, description?, argsSchema?
+}`. Neither lists `icons`, even though the wire schema supports it on both primitives. So
+today: resource and template icons are real and actionable through the high-level API; tool
+and prompt icons are spec-level and forward-looking until the SDK's convenience config
+catches up, or until a server drops to the low-level `Server` class and builds
+`ListToolsResult`/`ListPromptsResult` by hand.
+
+**Don't conflate this with `icon.svg` at the repo root.** That's a different thing entirely:
+Smithery's scoring rubric (see `smithery-config.md`) gives 10pt for a single `icon.svg` file
+at the repository root, a directory-listing convention unrelated to the SEP-973 `icons`
+array on individual primitives. `icon.svg` at the repo root is the actionable step today for
+every server regardless of SDK version; the `icons` array is additional coverage, currently
+wired up for resources and templates only.
+
+### Naming portability: no dots, ever
+
+The MCP spec's name charset (`A-Za-z0-9_.-`) allows dots. The Claude API's tool-name
+validation charset (`[a-zA-Z0-9_-]`) does not. A dot-namespaced tool or prompt name breaks
+on the largest MCP client even though it's spec-legal.
+
+Field-verified: a dot-notation rename on japan-seasons caused a live Smithery score drop,
+reverted back to underscores afterward. Rule: underscores always, no exceptions, in both
+tool names and prompt names. See the Workflow prompts section's PROMPT QUALITY checklist
+above for the prompt-naming half of this rule; this is the one place both halves are stated
+together.
+
+### Pagination: one opaque-cursor pattern
+
+`resources/list`, `resources/templates/list`, `prompts/list`, and `tools/list` all share
+the same request/result shape: an optional `cursor: string` on the request, an optional
+`nextCursor: string` on the result. Verified against `typescript-sdk` `v1.29.0`,
+`src/types.ts`: `PaginatedRequestSchema`/`PaginatedResultSchema`, reused by all four list
+endpoints. One pattern, not four; don't invent a different cursor scheme per endpoint.
+
+The cursor is opaque to clients. Whatever the server encodes into it (an offset, an id, a
+page token), the client's only job is to pass it back unchanged on the next request.
+Clients must never parse, decode, or construct a cursor themselves.
+
+`McpServer`'s high-level convenience API (`registerResource`, `registerTool`,
+`registerPrompt`) does not implement pagination; it returns the complete list in a single
+response regardless of any `cursor` the client sends. That's fine for the common scaffolded
+case, a bounded, human-sized primitive count. A server with a large enough primitive list to
+need real pagination has to drop to the low-level `Server` class and honor
+`cursor`/`nextCursor` by hand in its `ListResourcesRequestSchema`,
+`ListResourceTemplatesRequestSchema`, `ListPromptsRequestSchema`, and
+`ListToolsRequestSchema` handlers, using the same opaque-cursor contract across all four.

@@ -171,7 +171,7 @@ Do not copy-paste canonical URLs into static pages without a token/render/check 
 ## src/index.ts — complete server template
 
 ```typescript
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
@@ -180,7 +180,9 @@ import { safeFetch } from "./lib/fetch.js";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 
-// ── Annotation constants ──
+// ── Annotation constants (ToolAnnotations: tool behavior, not the shared
+// audience/priority/lastModified annotations; see references/primitives-guide.md's
+// Cross-cutting metadata section) ──
 const READONLY: ToolAnnotations           = { readOnlyHint: true, idempotentHint: true };
 const READONLY_EXTERNAL: ToolAnnotations  = { readOnlyHint: true, idempotentHint: true, openWorldHint: true };
 const WRITE: ToolAnnotations              = { readOnlyHint: false, idempotentHint: false };
@@ -194,6 +196,7 @@ function loadStaticJSON(filename: string) {
 }
 const STATIC = {
   items: loadStaticJSON("items.json"),
+  categories: ["all", "active", "pending"],
 };
 
 // ── Server ──
@@ -203,10 +206,9 @@ const server = new McpServer(
     instructions: `[Server name]. [One sentence: what it covers and data source].
 
 Tool usage guide:
-- Start with [domain.overview] for the big picture
-- Use [domain.search] when the user gives specific criteria  
-- Call [domain.detail] only after narrowing down with search
-- [weather.forecast] last — check when conditions affect timing
+- Start with domain_overview for the big picture
+- Use domain_search when the user gives specific criteria
+- Call domain_detail only after narrowing down with search
 
 All tools are read-only. No auth required.`
   }
@@ -214,10 +216,10 @@ All tools are read-only. No auth required.`
 
 // ── Tools ──
 server.registerTool(
-  "domain.overview",
+  "domain_overview",
   {
     title: "Overview of Domain Items",
-    description: "Get a summary of all [items] with current status. Use this first before narrowing to specific items. Call domain.detail next for a single item.",
+    description: "Get a summary of all [items] with current status. Use this first before narrowing to specific items. Call domain_detail next for a single item.",
     inputSchema: {
       filter: z.string().optional()
         .describe("Optional filter by category. Accepted values: 'all', 'active', 'pending'. Defaults to 'all'.")
@@ -234,17 +236,62 @@ server.registerTool(
     } catch (err) {
       return {
         isError: true,
-        content: [{ type: "text", text: `Failed to load overview: ${err instanceof Error ? err.message : String(err)}. Try domain.search with a specific query instead.` }]
+        content: [{ type: "text", text: `Failed to load overview: ${err instanceof Error ? err.message : String(err)}. Try domain_search with a specific query instead.` }]
       };
     }
   }
+);
+
+// ── Resources: static, read-only dataset with no meaningful parameters ──
+server.registerResource(
+  "categories",
+  "domain://categories",
+  {
+    title: "Item Categories",
+    description: "Full list of category values items can be filtered by.",
+    mimeType: "application/json",
+    annotations: { audience: ["assistant"], priority: 0.3 },
+  },
+  async (uri) => ({
+    contents: [
+      { uri: uri.href, mimeType: "application/json", text: JSON.stringify(STATIC.categories) },
+    ],
+  })
+);
+
+// ── Resource template: parameterized hierarchical read, with completion ──
+// The `complete` map key must match the URI template variable exactly ("category" here)
+// or the completions capability never gets declared; see the Resource templates and
+// Completions sections in references/primitives-guide.md.
+server.registerResource(
+  "items-by-category",
+  new ResourceTemplate("domain://items/{category}", {
+    list: undefined,
+    complete: {
+      category: async (value) => STATIC.categories.filter((c) => c.startsWith(value)),
+    },
+  }),
+  {
+    title: "Items by Category",
+    description: "Items in one category.",
+    mimeType: "application/json",
+  },
+  async (uri, { category }) => ({
+    contents: [
+      {
+        uri: uri.href,
+        mimeType: "application/json",
+        text: JSON.stringify((STATIC.items ?? []).filter((i: any) => i.category === category)),
+      },
+    ],
+  })
 );
 
 // ── Prompts — 1–2 covering the most common full workflows ──
 server.registerPrompt(
   "plan_full_workflow",
   {
-    name: "plan_full_workflow",
+    title: "Plan Full Domain Workflow",
     description: "Guide through the complete [domain] workflow: overview → search → detail.",
     argsSchema: {
       user_goal: z.string().describe("What the user wants to accomplish"),
@@ -255,7 +302,7 @@ server.registerPrompt(
       role: "user",
       content: {
         type: "text",
-        text: `Help me with: ${user_goal}. Use domain.overview to get started, then domain.search to narrow down, then domain.detail for specifics.`,
+        text: `Help me with: ${user_goal}. Use domain_overview to get started, then domain_search to narrow down, then domain_detail for specifics.`,
       },
     }],
   })
@@ -277,7 +324,7 @@ Every tool description must:
 4. **Stay under 2 sentences** — agents don't read long descriptions
 
 **Bad:** `"This tool provides information about items"`
-**Good:** `"Get live status for all [items] in the system. Filter by category. Call domain.search next to narrow results."`
+**Good:** `"Get live status for all [items] in the system. Filter by category. Call domain_search next to narrow results."`
 
 ---
 
