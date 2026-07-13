@@ -294,6 +294,12 @@ server.registerPrompt(
 );
 ```
 
+Adapt the matching to your canonical source's format. Dogfood finding from
+japan-seasons: its prefecture list returns "NN: Name" strings ("13: Tokyo"), so a
+literal startsWith() only matched typed digit codes; a case-insensitive includes()
+lets users type "tokyo" and resolve. Match against what your data actually looks
+like, not the bare-name shape of this example.
+
 `argsSchema` is a raw shape, an object of Zod schemas keyed by argument name, the same
 convention `registerTool`'s `inputSchema` uses, not a `z.object(...)` instance (verified
 against `typescript-sdk` `v1.29.0`, `src/server/mcp.ts`). The callback returns a
