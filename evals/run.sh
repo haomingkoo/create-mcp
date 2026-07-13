@@ -172,9 +172,10 @@ level3() {
   local tmp report
   tmp=$(mktemp -d)
   cp -r "$EVALS_DIR/files/." "$tmp/"
+  rm -f "$tmp/planted-bugs.json"   # never ship the answer key into the audited dir
   report="$tmp/.audit-report.txt"
 
-  if ! (cd "$tmp" && claude -p "Audit and fix broken-mcp-index.ts against all quality dimensions, including resources, resource templates, completions, prompts, naming portability, and icon metadata. Report every issue found, before/after Smithery score." > "$report"); then
+  if ! (cd "$tmp" && claude -p "Use the create-mcp skill to audit and fix broken-mcp-index.ts against all quality dimensions, including resources, resource templates, completions, prompts, naming portability, and icon metadata. Report every issue found, before/after Smithery score." > "$report"); then
     check "level 3: headless AUDIT run completed" 1
     return
   fi
@@ -195,10 +196,9 @@ level3() {
   check "level 3: AUDIT report recall >= 90% of planted-bugs.json (PRD §8 target)" $?
 }
 
-level0
-level1
-level2
-level3
+for lvl in ${LEVELS:-level0 level1 level2 level3}; do
+  "$lvl"
+done
 
 echo
 echo "$PASS passed, $FAIL failed"
