@@ -32,11 +32,17 @@ Most developers ship something that works locally and then wonder why nobody fin
 
 Two paths, auto-detected:
 
-**Starting from scratch** — Claude asks about your data source, the natural questions users would ask, auth requirements, whether it runs locally or hosted, and how users should discover it. From those answers it designs the tool structure, proposes it for your review, then scaffolds production-ready TypeScript. It builds in caching, error handling, AI-search surfaces, and all 10 quality dimensions from the start.
+**Starting from scratch** — Claude asks about your data source, the natural questions users would ask, auth requirements, whether it runs locally or hosted, and how users should discover it. From those answers it designs the tool structure, proposes it for your review, then scaffolds production-ready TypeScript. It builds in caching, error handling, AI-search surfaces, and all quality dimensions from the start.
 
 **Already have an MCP** — Claude reads your `src/index.ts`, scores every dimension, fixes everything in one pass, and reports what changed and what Smithery impact to expect.
 
 Either way, the skill ends with the publish checklist: version bump, npm publish, hosted deploy verification, ChatGPT app/connector copy, MCPB packaging when useful, and where to submit for discovery.
+
+---
+
+## Version targeting
+
+This skill targets the stable v1 SDKs: TypeScript `@modelcontextprotocol/sdk` 1.x and Python `mcp` 1.x. SDK v2 is pre-release, so it's intentionally not covered until it reaches general availability.
 
 ---
 
@@ -90,7 +96,7 @@ Claude detects which path applies from the project directory.
 
 ## What gets built and audited
 
-These are the core dimensions the skill enforces. Each one affects whether AI clients use your tools correctly, and whether users find your server.
+These are the dimensions the skill enforces across tools, resources, templates, and prompts. Each one affects whether AI clients use your server correctly, and whether users find it.
 
 | Dimension | Why it matters |
 |---|---|
@@ -98,6 +104,11 @@ These are the core dimensions the skill enforces. Each one affects whether AI cl
 | Parameter descriptions | Without these, the AI guesses what to pass. Every input needs a `.describe()`. |
 | Annotations | `readOnlyHint` and `idempotentHint` tell clients whether it's safe to retry. Missing these reduces trust scores. |
 | Tool titles | Human-readable name per the MCP 2025-06-18 spec. Displayed in client UIs. |
+| Static resources | A zero-arg tool returning a fixed dataset should be a resource instead. Every JSON/binary resource needs an explicit `mimeType`, set on both the registration and each returned content entry. |
+| Resource templates | A parameterized read like `spots/{prefecture}` should be a template, not a tool. The read callback's parameter names must match the URI's `{variable}` names exactly, or the value is silently missing. |
+| Completions | A companion to templates and prompts, not a standalone primitive. The completion callback's key must exactly match the template variable or prompt argument it's wired to, or the capability never gets declared. |
+| Workflow prompts | 3-5 prompts, each chaining a real multi-tool workflow, not padded to hit a count. Scored on description quality, argument completions, and multi-message structure. |
+| Cross-cutting metadata | Content annotations (audience, priority, freshness), icons, no dots in tool or prompt names, and one consistent pagination pattern across every list endpoint. |
 | Server instructions | The "system prompt" for AI clients. Tells them tool call order and what NOT to use the server for. Without this, clients improvise. |
 | Static data | Data loaded on every tool call slows everything down. Load at startup. |
 | Caching | Live API calls without caching mean a new upstream request every time Claude calls a tool. 1–6h TTL for most data. |
@@ -200,17 +211,18 @@ From that point, every `git push` to main triggers a Railway redeploy. All users
 
 The skill's publish checklist walks through each one.
 
-**Smithery scoring reference:**
+**Smithery scoring reference** (community-derived rubric, unverified against a primary Smithery source; re-verify before relying on exact point values):
 
 | Category | Points |
 |---|---|
-| Tool descriptions | 12 |
-| Parameter descriptions | 11 |
-| Annotations | 7 |
-| Tool names | 5 |
-| Server capabilities | 10 |
-| Server metadata | 30 |
-| Configuration UX | 25 |
+| Tools with descriptions | 25 |
+| Tool annotations | 20 |
+| Config schema (`required: []`) | 15 |
+| Workflow prompts | 15 |
+| Icon | 10 |
+| README / documentation | 15 |
+
+Resources are not a Smithery scoring category, so they neither earn nor cost points, though they do widen Glama's discoverability facets.
 
 **Client compatibility beats score chasing.** Smithery may reward dotted tool names such as `domain.action`, but some Claude clients are more reliable with underscore names such as `sakura_forecast`. The skill now treats 98/100 with client-compatible tool names as a better outcome than 100/100 with names the target client cannot call.
 
