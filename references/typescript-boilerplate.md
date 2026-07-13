@@ -324,7 +324,7 @@ Every tool description must:
 4. **Stay under 2 sentences** — agents don't read long descriptions
 
 **Bad:** `"This tool provides information about items"`
-**Good:** `"Get live status for all [items] in the system. Filter by category. Call domain.search next to narrow results."`
+**Good:** `"Get live status for all [items] in the system. Filter by category. Call domain_search next to narrow results."`
 
 ---
 
