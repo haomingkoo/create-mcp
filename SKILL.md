@@ -155,7 +155,7 @@ Quick checklist:
 - [ ] All params have `.describe()` + `.meta({ title })` (11pt)
 - [ ] All tools have annotations (`readOnlyHint` minimum; `openWorldHint` for APIs) (7pt)
 - [ ] At least 1 prompt registered for a real workflow (5pt)
-- [ ] Resources: auto-awarded, no action needed (5pt)
+- [ ] Resources: not a Smithery scoring category — no code-earnable points either way; affects Glama discoverability facets only (see references/smithery-config.md)
 - [ ] package.json: `description`, `keywords`, `author`, `license`, `homepage`, `repository` (10pt)
 - [ ] smithery.yaml or smithery.remote-config.json with `required: []` (25pt)
 - [ ] Smithery UI: icon + display name + server description (20pt — manual)
