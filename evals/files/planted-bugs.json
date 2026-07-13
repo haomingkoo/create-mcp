@@ -18,6 +18,12 @@
       "marker": "PLANTED BUG (T3b): complete map key mismatches URI variable, completions never enabled",
       "description": "The `ingredient-info` resource template's `complete` map is keyed `ingredient`, but the URI template variable is `ingredientName`. The SDK's completion auto-detection only checks real URI template variable names, so it never finds a match, never enables the completion handler, and the server never declares the `completions` capability, even though the callback code exists.",
       "eval_id": 5
+    },
+    {
+      "id": "T4-single-call-prompt",
+      "marker": "PLANTED BUG (T4): single-call prompt that should be a tool",
+      "description": "The `recipe_detail_prompt` prompt wraps exactly one tool call (get_recipe_detail) with its `id` argument passed straight through and no chaining across multiple tools, so it should be a tool, not a prompt. Its description ('Prompt for recipe detail') is also vague and noun-first, the same class of weak description flagged on the tools.",
+      "eval_id": 6
     }
   ]
 }

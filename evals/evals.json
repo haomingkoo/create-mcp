@@ -90,6 +90,20 @@
         "Does not conflate the two bugs: the cuisine-recipes fix does not touch the complete map, and the ingredient-info fix does not touch the read callback destructuring",
         "Confirms (or notes as verification) that after the fix, completions appears in the server's declared capabilities"
       ]
+    },
+    {
+      "id": 6,
+      "prompt": "I have an existing MCP server I need you to audit and fix. The source file is at evals/files/broken-mcp-index.ts. It's a recipe finder MCP. Please audit it, fix all the issues including any prompt issues, and tell me the estimated Smithery score before and after.",
+      "expected_output": "The audit builds a prompts table and identifies the recipe_detail_prompt prompt as a single-call prompt that wraps exactly one tool call (get_recipe_detail) with its argument passed straight through, with no multi-tool workflow. The audit also flags its vague, noun-first description ('Prompt for recipe detail') the same way a weak tool description would be flagged, and provides a concrete rewrite. The fix converts the prompt into a tool (or folds its behavior into the existing get_recipe_detail tool) rather than keeping it as a workflow prompt, and does not simply pad the prompt count to hit the 3-5 target.",
+      "files": ["evals/files/broken-mcp-index.ts"],
+      "expectations": [
+        "Audit builds a prompts table (name, args, workflow it encodes, quality) in addition to the tools, resources, and resource templates tables",
+        "Identifies recipe_detail_prompt as a single-call prompt that should be a tool: its messages resolve to exactly one tool call (get_recipe_detail) with the id argument passed straight through, no chaining across multiple tools",
+        "Flags the prompt's description ('Prompt for recipe detail') as vague/noun-first and provides a concrete rewrite, not just a note that it needs a better description",
+        "Fix converts recipe_detail_prompt into a tool (or removes it in favor of the existing get_recipe_detail tool) instead of leaving it registered as a workflow prompt",
+        "Does not misidentify recipe_detail_prompt as a legitimate workflow prompt, and does not count it toward the 3-5 workflow-prompt target",
+        "Provides a before/after estimated Smithery score"
+      ]
     }
   ]
 }

@@ -2,7 +2,7 @@
 // Issues: no annotations, noun-first descriptions, missing parameter .describe(),
 // no server instructions, no caching, static data loaded per call, get_ naming,
 // resource missing mimeType, template param/URI variable mismatch, completions
-// capability undeclared
+// capability undeclared, single-call prompt that should be a tool
 
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -147,6 +147,27 @@ server.registerResource(
       ],
     };
   }
+);
+
+// PLANTED BUG (T4): single-call prompt that should be a tool
+server.registerPrompt(
+  "recipe_detail_prompt",
+  {
+    description: "Prompt for recipe detail",
+    argsSchema: {
+      id: z.string(),
+    },
+  },
+  ({ id }) => ({
+    // Bad: this is one tool call with the argument passed straight through,
+    // no chaining, no workflow, and the description is vague/noun-first
+    messages: [
+      {
+        role: "user",
+        content: { type: "text", text: `Call get_recipe_detail with id ${id}.` },
+      },
+    ],
+  })
 );
 
 const transport = new StdioServerTransport();

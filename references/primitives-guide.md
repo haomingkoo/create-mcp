@@ -13,7 +13,7 @@ the AUDIT PATH resources check.
 | **Tool** (default) | Any action, side effect, write, or computation. Most capabilities are tools. | see `references/typescript-boilerplate.md` |
 | **Resource** | A static, read-only dataset — same content every call, no meaningful parameters. | covered below |
 | **Resource template** | A parameterized, hierarchical read — one string arg drives a listing (e.g. `docs://{category}`). | covered below |
-| **Prompt** | A recurring workflow that chains multiple tools in a known order. | stub — T4 fills |
+| **Prompt** | A recurring workflow that chains multiple tools in a known order. | covered below |
 
 **Tools-only is a valid, common answer.** Stripe's MCP server exposes only tools ("The
 server exposes the following MCP tools") — a transactional API has no static,
@@ -219,6 +219,162 @@ time: a placeholder like `{prefecture}` paired with a function parameter named `
 raises `ValueError` when the module loads, before the server ever starts. Stricter than
 TypeScript here, but still worth an explicit AUDIT check; don't rely on import-time
 errors alone if the audit is reading source without executing it.
+
+---
+
+## Workflow prompts
+
+### The sparseness principle
+
+Prompts are the rarest primitive in practice. GitHub's official MCP server ships 2 prompts
+against 50+ tools. The only other evidenced pattern is the Fetch reference server's 1:1
+tool/prompt pair, and even that is not single-call convenience: the `fetch` prompt calls
+the fetch logic directly with a manual user agent and skips the robots.txt permission
+check the `fetch` tool enforces, a genuinely different workflow, not a redundant wrapper
+around the same tool call (verified against `modelcontextprotocol/servers`, `src/fetch`).
+
+Register a prompt only for a recurring workflow that chains multiple tools in a known
+order. Never register one as a convenience wrapper around a single tool call with the
+prompt's arguments passed straight through; that capability belongs in the tool itself
+(a better description, better defaults) or nowhere.
+
+### When the heuristic fires
+
+- Mine `instructions` / tool-routing prose for "use X then Y" chains. A documented
+  sequence of two or more tool calls in a fixed order is a prompt candidate; a single verb
+  is not.
+- Check tool/prompt naming symmetry across paired domains. If one domain has a workflow
+  prompt (`plan_sakura_trip`) and a structurally identical sibling domain has no
+  equivalent (no `plan_koyo_trip`), that asymmetry is worth flagging during an audit; it's
+  exactly how the sakura/koyo gap was found on sakura-push.
+
+### Smithery context
+
+Workflow prompts are the 15pt Smithery scoring category (community-derived rubric, see
+`smithery-config.md`). The target is 3-5 prompts, each covering a real multi-tool
+workflow, not 3-5 prompts padded to hit a count.
+
+### TypeScript SDK v1
+
+```typescript
+import { completable } from "@modelcontextprotocol/sdk/server/completable.js";
+import { z } from "zod";
+
+server.registerPrompt(
+  "plan_koyo_trip",
+  {
+    title: "Plan a Koyo Trip",
+    description:
+      "Chain forecast lookup, best-date ranking, and spot search into one autumn-leaves itinerary for a prefecture.",
+    argsSchema: {
+      prefecture: completable(
+        z.string().describe("Japanese prefecture name, e.g. Kyoto"),
+        (value) => PREFECTURES.filter((p) => p.startsWith(value))
+      ),
+    },
+  },
+  ({ prefecture }) => ({
+    messages: [
+      {
+        role: "user",
+        content: {
+          type: "text",
+          text: `Plan an autumn-leaves viewing trip to ${prefecture}.`,
+        },
+      },
+      {
+        role: "assistant",
+        content: {
+          type: "text",
+          text: `I'll call koyo_forecast for ${prefecture}, then koyo_best_dates to narrow the window, then koyo_spots for exact locations.`,
+        },
+      },
+    ],
+  })
+);
+```
+
+`argsSchema` is a raw shape, an object of Zod schemas keyed by argument name, the same
+convention `registerTool`'s `inputSchema` uses, not a `z.object(...)` instance (verified
+against `typescript-sdk` `v1.29.0`, `src/server/mcp.ts`). The callback returns a
+`GetPromptResult`: a `messages` array of `{role, content}` pairs where `role` is `"user"`
+or `"assistant"` and `content` can be text, image, audio, a resource link, or an embedded
+resource. Use multiple messages, not one long string, whenever the workflow has a real
+handoff: seeding the assistant's next move keeps the model from re-deriving the tool order
+itself.
+
+### Python FastMCP v1
+
+```python
+from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.prompts.base import AssistantMessage, Message, UserMessage
+
+mcp = FastMCP("your-mcp-name")
+
+@mcp.prompt(
+    title="Plan a Koyo Trip",
+    description="Chain forecast lookup, best-date ranking, and spot search into one autumn-leaves itinerary for a prefecture.",
+)
+def plan_koyo_trip(prefecture: str) -> list[Message]:
+    return [
+        UserMessage(f"Plan an autumn-leaves viewing trip to {prefecture}."),
+        AssistantMessage(
+            f"I'll call koyo_forecast for {prefecture}, then koyo_best_dates, "
+            "then koyo_spots for exact locations."
+        ),
+    ]
+```
+
+`@mcp.prompt` infers arguments from the function signature, the same as `@mcp.tool`; it
+has no `arguments` parameter of its own (verified against `python-sdk` `v1.28.1`,
+`server.py`). A function can return a plain `str` (auto-wrapped as a single `UserMessage`)
+for a genuinely single-message prompt, or `list[Message]` for the multi-message,
+role-tagged case above. `UserMessage`/`AssistantMessage` accept a plain string and wrap it
+in `TextContent` for you (verified against `prompts/base.py`). FastMCP has no
+`completable()` equivalent for prompt arguments in this SDK version; if a prompt needs
+argument completion, register it through the separate `@mcp.completion()` handler instead.
+
+### Embedded resources in prompt messages
+
+When the workflow's messages need to reference data the server already exposes as a
+resource, embed it rather than re-serializing the same content as a second copy of text:
+
+```typescript
+{
+  role: "user",
+  content: {
+    type: "resource",
+    resource: {
+      uri: "seasons://spots/kyoto",
+      mimeType: "application/json",
+      text: JSON.stringify(getSpots("kyoto")),
+    },
+  },
+}
+```
+
+This is the `EmbeddedResourceSchema` content type (verified against `typescript-sdk`
+`v1.29.0`, `src/types.ts`): `type: "resource"` plus a `resource` field holding the same
+`TextResourceContents`/`BlobResourceContents` shape a resource read callback returns. Use
+it when the prompt operates on server data the client could otherwise fetch via
+`resources/read`, not for data that only exists inside the prompt call.
+
+### PROMPT QUALITY checklist
+
+Mirror the tool-quality bar onto every registered prompt:
+
+- [ ] Title and description state the workflow's purpose and when to use it, the same bar
+      as a tool description, not "helper prompt" or "does the workflow"
+- [ ] Every argument is described (`.describe()` in TypeScript, a clear parameter name and
+      docstring in Python), not a bare type with no explanation
+- [ ] Free-text arguments are wrapped in `completable()` (TypeScript) wherever the value
+      space is finite; open-ended free text with no completion is the same UX gap as an
+      uncompletable template parameter
+- [ ] Multi-message, role-tagged structure is used where the workflow warrants a handoff
+      (see the TypeScript/Python snippets above), not a single-string blob for a
+      genuinely multi-step workflow
+- [ ] Naming is `verb_noun`, no dots, and symmetric with the paired tool domain (a dotted
+      prompt name is the same Claude-portability bug as a dotted tool name)
 
 ---
 

@@ -171,7 +171,29 @@ silently drift even though the SDK usually auto-detects it. Flag any template wi
 free-text (non-enumerable) parameter that has no completion callback as a UX gap: the
 client has no way to help the user fill it in.
 
-Also check: prompts registered? cache.ts present? static data inside vs outside handlers?
+Also build a prompts table (see `references/primitives-guide.md`'s Workflow prompts
+section for the sparseness principle and the build patterns):
+
+| Prompt name | Args | Workflow it encodes | Quality (per PROMPT QUALITY checklist) |
+|---|---|---|---|
+
+For each registered prompt:
+- **Single-call check.** If the prompt's messages resolve to exactly one tool call with
+  the prompt's arguments passed straight through and no chaining across multiple tools,
+  flag it as a should-be-a-tool candidate, the same judgment call as a should-be-a-resource
+  zero-arg tool. The fix is to convert it to a tool (better description, better defaults)
+  or remove it, not to keep it registered as a workflow prompt.
+- **Description quality check.** A vague or undescribed prompt (missing `description`, or
+  one that doesn't state the workflow and when to use it) gets a concrete rewrite
+  suggestion, exactly like a weak tool description does in the tools table above, not just
+  a "needs a better description" note.
+- **Naming symmetry check.** Compare prompt names against the domain's tool names: a
+  `verb_noun` prompt in one domain (`plan_sakura_trip`) with no symmetric prompt in a
+  structurally identical sibling domain (no `plan_koyo_trip`) is a coverage gap worth
+  flagging. Any dot in a prompt name is the same Claude-portability bug as a dotted tool
+  name (see the tool naming check above); flag it the same way.
+
+Also check: cache.ts present? static data inside vs outside handlers?
 
 If it is hosted/public, also check: `/health`, `/llms.txt`, `/sitemap.xml`, AI-search topic/text pages, JSON APIs, `search`/`fetch` compatibility, and README language separating web search from MCP tool execution.
 
@@ -185,7 +207,8 @@ Quick checklist:
 - [ ] Tool names are specific, stable, and compatible with target clients; use `domain_action` unless dotted names are verified safe
 - [ ] Tool descriptions: verb-first, ≤2 sentences, states next tool; every param has `.describe()` + `.meta({ title })` (25pt)
 - [ ] All tools have annotations (`readOnlyHint` minimum; `openWorldHint` for APIs) (20pt)
-- [ ] 3-5 workflow prompts registered, each covering a real multi-tool workflow (15pt)
+- [ ] 3-5 workflow prompts registered, each covering a real multi-tool workflow, scored
+      against the PROMPT QUALITY checklist in `references/primitives-guide.md` (15pt)
 - [ ] Resources: not a Smithery scoring category — no code-earnable points either way; affects Glama discoverability facets only (see references/smithery-config.md)
 - [ ] smithery.yaml or smithery.remote-config.json with `required: []` (15pt; 10pt if any field required)
 - [ ] icon.svg at repo root (10pt)
@@ -203,7 +226,8 @@ Priority order (highest score impact first):
 2. Tool descriptions → verb-first, 2 sentences, call-next
 3. Parameter descriptions → `.describe()` + `.meta({ title })` on every input
 4. Annotations → READONLY / READONLY_EXTERNAL / WRITE / DESTRUCTIVE
-5. Prompts → register 1–2 for main workflows
+5. Prompts → register 3-5 for main workflows; convert single-call prompts to tools
+   instead of padding the count
 6. Server instructions → add `instructions` to McpServer if missing
 7. Static data → move any per-call file reads to module level
 8. Caching → wrap all live API calls in `getOrFetch()`
