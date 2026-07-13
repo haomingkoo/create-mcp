@@ -1,0 +1,32 @@
+[
+  {
+    "id": "margherita-pizza",
+    "cuisine": "italian",
+    "prepTime": 30,
+    "ingredients": [{ "name": "flour" }, { "name": "tomato" }, { "name": "mozzarella" }, { "name": "basil" }]
+  },
+  {
+    "id": "pad-thai",
+    "cuisine": "thai",
+    "prepTime": 25,
+    "ingredients": [{ "name": "rice noodles" }, { "name": "shrimp" }, { "name": "peanuts" }, { "name": "chili" }]
+  },
+  {
+    "id": "tacos-al-pastor",
+    "cuisine": "mexican",
+    "prepTime": 40,
+    "ingredients": [{ "name": "pork" }, { "name": "pineapple" }, { "name": "tortilla" }, { "name": "chili" }]
+  },
+  {
+    "id": "chicken-katsu-curry",
+    "cuisine": "japanese",
+    "prepTime": 45,
+    "ingredients": [{ "name": "chicken" }, { "name": "panko" }, { "name": "curry roux" }, { "name": "ginger" }]
+  },
+  {
+    "id": "chana-masala",
+    "cuisine": "indian",
+    "prepTime": 35,
+    "ingredients": [{ "name": "chickpeas" }, { "name": "tomato" }, { "name": "garlic" }, { "name": "turmeric" }]
+  }
+]

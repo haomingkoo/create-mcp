@@ -1,0 +1,68 @@
+{
+  "command": "npx",
+  "args": ["tsx", "broken-mcp-index.ts"],
+  "cwd": "../files",
+  "timeoutMs": 8000,
+  "steps": [
+    {
+      "id": "init",
+      "method": "initialize",
+      "params": {
+        "protocolVersion": "2025-06-18",
+        "capabilities": {},
+        "clientInfo": { "name": "create-mcp-eval-client", "version": "0.0.1" }
+      }
+    },
+    { "id": "initialized", "notify": "notifications/initialized" },
+    { "id": "tools", "method": "tools/list" },
+    { "id": "resources", "method": "resources/list" },
+    { "id": "templates", "method": "resources/templates/list" },
+    { "id": "prompts", "method": "prompts/list" },
+    { "id": "read-cuisines", "method": "resources/read", "params": { "uri": "recipes://cuisines" } },
+    { "id": "read-cuisine-template", "method": "resources/read", "params": { "uri": "recipes://cuisine/italian" } },
+    {
+      "id": "complete-ingredient",
+      "method": "completion/complete",
+      "params": {
+        "ref": { "type": "ref/resource", "uri": "recipes://ingredient/{ingredientName}" },
+        "argument": { "name": "ingredientName", "value": "ba" }
+      }
+    }
+  ],
+  "assertions": [
+    {
+      "desc": "T2: cuisines resource read returns content with no mimeType (JSON resource missing mimeType)",
+      "step": "read-cuisines",
+      "path": "result.contents.0.mimeType",
+      "type": "notExists"
+    },
+    {
+      "desc": "T3a: cuisine-recipes template read (recipes://cuisine/italian) returns an empty array because the callback destructures the wrong param name",
+      "step": "read-cuisine-template",
+      "path": "result.contents.0.text",
+      "type": "equals",
+      "value": "[]"
+    },
+    {
+      "desc": "T3b: completions capability is not declared at initialize, even though a complete callback exists in source",
+      "step": "init",
+      "path": "result.capabilities.completions",
+      "type": "notExists"
+    },
+    {
+      "desc": "T3b: completion/complete is unreachable at the protocol level (no handler registered, Method not found)",
+      "step": "complete-ingredient",
+      "path": "error.code",
+      "type": "equals",
+      "value": -32601
+    },
+    {
+      "desc": "T5a: dotted tool name \"recipes.search\" is present in tools/list (breaks Claude API tool-name validation)",
+      "step": "tools",
+      "path": "result.tools",
+      "type": "includesField",
+      "field": "name",
+      "value": "recipes.search"
+    }
+  ]
+}
