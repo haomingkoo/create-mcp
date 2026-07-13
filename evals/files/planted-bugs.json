@@ -14,8 +14,8 @@
       "eval_id": 5
     },
     {
-      "id": "T3b-completions-capability-undeclared",
-      "marker": "PLANTED BUG (T3b): completions implemented but capability not declared",
+      "id": "T3b-completion-key-mismatch",
+      "marker": "PLANTED BUG (T3b): complete map key mismatches URI variable, completions never enabled",
       "description": "The `ingredient-info` resource template's `complete` map is keyed `ingredient`, but the URI template variable is `ingredientName`. The SDK's completion auto-detection only checks real URI template variable names, so it never finds a match, never enables the completion handler, and the server never declares the `completions` capability, even though the callback code exists.",
       "eval_id": 5
     }

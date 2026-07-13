@@ -113,7 +113,7 @@ server.registerResource(
   }
 );
 
-// PLANTED BUG (T3b): completions implemented but capability not declared
+// PLANTED BUG (T3b): complete map key mismatches URI variable, completions never enabled
 server.registerResource(
   "ingredient-info",
   new ResourceTemplate("recipes://ingredient/{ingredientName}", {
