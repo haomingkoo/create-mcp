@@ -5,37 +5,65 @@
       "id": "T2-resource-mimetype",
       "marker": "PLANTED BUG (T2): json resource missing mimeType",
       "description": "The `cuisines` resource (registered via server.registerResource) returns JSON content but declares no mimeType, in either the registration metadata or the read callback's contents[] entry, so clients can't tell it isn't text/plain.",
-      "eval_id": 4
+      "eval_id": 4,
+      "detect_any": [
+        "mimetype"
+      ]
     },
     {
       "id": "T3a-template-param-mismatch",
       "marker": "PLANTED BUG (T3a): template param/URI variable mismatch",
       "description": "The `cuisine-recipes` resource template's URI is `recipes://cuisine/{cuisineSlug}`, but the read callback destructures `{ cuisine }`, so the parameter is always undefined and the filter never matches any recipe.",
-      "eval_id": 5
+      "eval_id": 5,
+      "detect_any": [
+        "cuisineslug",
+        "param.{0,20}mismatch",
+        "uri variable"
+      ]
     },
     {
       "id": "T3b-completion-key-mismatch",
       "marker": "PLANTED BUG (T3b): complete map key mismatches URI variable, completions never enabled",
       "description": "The `ingredient-info` resource template's `complete` map is keyed `ingredient`, but the URI template variable is `ingredientName`. The SDK's completion auto-detection only checks real URI template variable names, so it never finds a match, never enables the completion handler, and the server never declares the `completions` capability, even though the callback code exists.",
-      "eval_id": 5
+      "eval_id": 5,
+      "detect_any": [
+        "never fires",
+        "completion.{0,40}(key|mismatch|unreachable)",
+        "completions capability"
+      ]
     },
     {
       "id": "T4-single-call-prompt",
       "marker": "PLANTED BUG (T4): single-call prompt that should be a tool",
       "description": "The `recipe_detail_prompt` prompt wraps exactly one tool call (get_recipe_detail) with its `id` argument passed straight through and no chaining across multiple tools, so it should be a tool, not a prompt. Its description ('Prompt for recipe detail') is also vague and noun-first, the same class of weak description flagged on the tools.",
-      "eval_id": 6
+      "eval_id": 6,
+      "detect_any": [
+        "should be a tool",
+        "single[- ]call prompt",
+        "exactly one tool call"
+      ]
     },
     {
       "id": "T5a-dotted-tool-name",
       "marker": "PLANTED BUG (T5a): dotted tool name breaks Claude API",
       "description": "The `recipes.search` tool (renamed from search_by_ingredient) uses a dot in its name. The MCP spec charset (A-Za-z0-9_.-) allows this, but the Claude API's tool-name validation charset ([a-zA-Z0-9_-]) does not, so the tool breaks on the largest MCP client even though it is spec-legal. Fix: rename to underscores, e.g. recipes_search.",
-      "eval_id": 7
+      "eval_id": 7,
+      "detect_any": [
+        "dotted (tool )?name",
+        "dot notation",
+        "tool-name portability"
+      ]
     },
     {
       "id": "T5b-missing-icon-metadata",
       "marker": "PLANTED BUG (T5b): missing icon metadata",
       "description": "No registered tool, resource, template, or prompt declares an `icons` array (SEP-973), and there is no icon.svg at the server's repo root for Smithery's icon category. Absence-type bug: there is nothing in existing code to rename or correct, the gap is that no icon metadata exists anywhere in the fixture.",
-      "eval_id": 7
+      "eval_id": 7,
+      "detect_any": [
+        "icons? metadata",
+        "icon\\.svg",
+        "no icons"
+      ]
     }
   ]
 }
