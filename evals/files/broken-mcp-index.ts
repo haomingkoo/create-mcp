@@ -2,13 +2,19 @@
 // Issues: no annotations, noun-first descriptions, missing parameter .describe(),
 // no server instructions, no caching, static data loaded per call, get_ naming,
 // resource missing mimeType, template param/URI variable mismatch, completions
-// capability undeclared, single-call prompt that should be a tool
+// capability undeclared, single-call prompt that should be a tool, dotted tool
+// name (Claude API portability), missing icon metadata
 
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { readFileSync } from "fs";
 
+// PLANTED BUG (T5b): missing icon metadata
+// No registered tool, resource, template, or prompt in this file declares an `icons`
+// array (SEP-973), and there is no icon.svg at the repo root for Smithery's icon
+// category. Absence-type bug: nothing here to rename, the gap is that no icon
+// metadata exists anywhere in this server.
 const server = new McpServer({ name: "recipe-finder", version: "0.1.0" });
 
 server.registerTool(
@@ -49,8 +55,9 @@ server.registerTool(
   }
 );
 
+// PLANTED BUG (T5a): dotted tool name breaks Claude API
 server.registerTool(
-  "search_by_ingredient",
+  "recipes.search",
   {
     description: "Allows searching for recipes using ingredient names as search terms",
     inputSchema: {

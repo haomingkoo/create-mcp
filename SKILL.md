@@ -127,6 +127,7 @@ Key things to get right in every build:
 - For local stdio servers aimed at nontechnical users, add MCPB packaging guidance
 - Single source of truth: do not hardcode URLs, connector metadata, example cities, timing guidance, or "what tool next" copy separately in frontend and backend. Put them in a shared config/module and render frontend/static pages from tokens or validate them with a build-time check.
 - **API key handling**: if using `required: []` in smithery.yaml (key is optional), the server must handle a missing key gracefully — don't call `process.exit(1)` when the key is absent. Instead, let the handler return `isError: true` with a helpful message. If the server truly cannot function without the key, either set `required: ["apiKey"]` or ensure the `commandFunction` always passes the env var so it's always present when Smithery runs it.
+- Annotations, icons, naming portability, and pagination: see `references/primitives-guide.md`'s Cross-cutting metadata section.
 
 See `references/smithery-config.md` for smithery.yaml and smithery.remote-config.json templates.
 
@@ -192,6 +193,18 @@ For each registered prompt:
   structurally identical sibling domain (no `plan_koyo_trip`) is a coverage gap worth
   flagging. Any dot in a prompt name is the same Claude-portability bug as a dotted tool
   name (see the tool naming check above); flag it the same way.
+
+Also check cross-cutting metadata (see `references/primitives-guide.md`'s Cross-cutting
+metadata section for the full write-up):
+- Annotations (`audience`/`priority`/`lastModified`) validated against the shared format on
+  resources, templates, prompt content, and tool result content; not confused with
+  `ToolAnnotations`
+- Icons present: `icons` array on resources/templates where the SDK exposes it, `icon.svg`
+  at the repo root regardless of SDK version
+- Any dot in a tool or prompt name flagged as a portability bug, no exceptions
+- `resources/list`, `resources/templates/list`, `prompts/list`, and `tools/list` all
+  paginate with the same opaque-cursor pattern, or the server's primitive count is small
+  enough that no pagination is needed at all
 
 Also check: cache.ts present? static data inside vs outside handlers?
 

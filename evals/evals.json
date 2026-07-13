@@ -104,6 +104,21 @@
         "Does not misidentify recipe_detail_prompt as a legitimate workflow prompt, and does not count it toward the 3-5 workflow-prompt target",
         "Provides a before/after estimated Smithery score"
       ]
+    },
+    {
+      "id": 7,
+      "prompt": "I have an existing MCP server I need you to audit and fix. The source file is at evals/files/broken-mcp-index.ts. It's a recipe finder MCP. Please audit it, fix all the issues including any naming portability or icon metadata issues, and tell me the estimated Smithery score before and after.",
+      "expected_output": "The audit flags the recipes.search tool's dotted name as a Claude API portability bug (the MCP spec allows dots but Claude's tool-name validation charset does not) and renames it to an underscore form such as recipes_search. The audit also flags the absence of any icons array on tools, resources, templates, and prompts, and the absence of an icon.svg at the repo root, and suggests adding icon metadata: icon.svg at minimum, icons arrays where the SDK version supports them.",
+      "files": ["evals/files/broken-mcp-index.ts"],
+      "expectations": [
+        "Identifies the recipes.search tool name as containing a dot and flags it as a client-portability bug, not just a style preference",
+        "Fix renames recipes.search to an underscore name such as recipes_search or recipe_search, with no dots remaining in the name",
+        "States that the MCP spec charset allows dots but the Claude API's tool-name validation charset does not, as the reason for the rename",
+        "Identifies the absence of any icons array across all registered tools, resources, templates, and prompts as a gap, not just silence",
+        "Identifies the absence of an icon.svg at the repo root and suggests adding one for the Smithery icon.svg category",
+        "Does not conflate the icons array (SEP-973 metadata field) with the icon.svg repo-root file, treating them as two distinct fixes",
+        "Provides a before/after estimated Smithery score"
+      ]
     }
   ]
 }

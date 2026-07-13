@@ -24,6 +24,18 @@
       "marker": "PLANTED BUG (T4): single-call prompt that should be a tool",
       "description": "The `recipe_detail_prompt` prompt wraps exactly one tool call (get_recipe_detail) with its `id` argument passed straight through and no chaining across multiple tools, so it should be a tool, not a prompt. Its description ('Prompt for recipe detail') is also vague and noun-first, the same class of weak description flagged on the tools.",
       "eval_id": 6
+    },
+    {
+      "id": "T5a-dotted-tool-name",
+      "marker": "PLANTED BUG (T5a): dotted tool name breaks Claude API",
+      "description": "The `recipes.search` tool (renamed from search_by_ingredient) uses a dot in its name. The MCP spec charset (A-Za-z0-9_.-) allows this, but the Claude API's tool-name validation charset ([a-zA-Z0-9_-]) does not, so the tool breaks on the largest MCP client even though it is spec-legal. Fix: rename to underscores, e.g. recipes_search.",
+      "eval_id": 7
+    },
+    {
+      "id": "T5b-missing-icon-metadata",
+      "marker": "PLANTED BUG (T5b): missing icon metadata",
+      "description": "No registered tool, resource, template, or prompt declares an `icons` array (SEP-973), and there is no icon.svg at the server's repo root for Smithery's icon category. Absence-type bug: there is nothing in existing code to rename or correct, the gap is that no icon metadata exists anywhere in the fixture.",
+      "eval_id": 7
     }
   ]
 }

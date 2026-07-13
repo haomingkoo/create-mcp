@@ -458,3 +458,129 @@ A completion response's `values` array is capped at 100 items regardless of how 
 matches exist; `total` and `hasMore` describe the full match count so clients know there
 is more even though only the first 100 come back. Sort or rank before truncating; don't
 return an arbitrary 100.
+
+---
+
+## Cross-cutting metadata
+
+These four concerns apply across every primitive above rather than to just one. Documented
+once here; SKILL.md's CREATE and AUDIT paths and `typescript-boilerplate.md` reference this
+section instead of repeating it three times.
+
+### Annotations: audience, priority, lastModified
+
+One shared annotations format appears on resources, resource templates, prompt message
+content, and tool result content blocks alike:
+
+```typescript
+{
+  audience?: ("user" | "assistant")[];
+  priority?: number;      // 0.0 to 1.0, clamped by the schema (z.number().min(0).max(1))
+  lastModified?: string;  // ISO 8601 datetime
+}
+```
+
+Verified against `typescript-sdk` `v1.29.0`, `src/types.ts`: `AnnotationsSchema`, reused
+inside `ResourceSchema`, `ResourceTemplateSchema`, `TextContentSchema`, `ImageContentSchema`,
+and `EmbeddedResourceSchema`.
+
+This is a different concept from `ToolAnnotations` (`readOnlyHint`, `destructiveHint`,
+`idempotentHint`, `openWorldHint`; the ones already behind `typescript-boilerplate.md`'s
+`READONLY`/`WRITE`/`DESTRUCTIVE` constants). Same word, two unrelated shapes.
+`ToolAnnotations` describes a tool's behavior and lives on the tool registration itself; the
+audience/priority/lastModified annotations describe content relevance and live on resources,
+templates, and individual content blocks. One validator concept, two call sites:
+
+- **Resources and templates.** `registerResource`'s config object is `ResourceMetadata`
+  (`Omit<Resource, 'uri' | 'name'>`), and `Resource` carries `annotations` directly. Set it
+  the same way `mimeType` is set today:
+
+  ```typescript
+  server.registerResource(
+    "categories",
+    "domain://categories",
+    {
+      title: "Item Categories",
+      mimeType: "application/json",
+      annotations: { audience: ["assistant"], priority: 0.3 },
+    },
+    async (uri) => ({ /* ... */ })
+  );
+  ```
+
+- **Tool results and prompt messages.** There's no config field for this case;
+  `annotations` goes directly on the content block the handler returns (`TextContent`,
+  `ImageContent`, `EmbeddedResource`), because that's where the schema puts it:
+
+  ```typescript
+  return {
+    content: [
+      { type: "text", text: summary, annotations: { audience: ["user"], priority: 0.8 } },
+    ],
+  };
+  ```
+
+AUDIT check: a `priority` outside 0.0 to 1.0 or an `audience` value other than `"user"` or
+`"assistant"` fails the schema at the client, not silently. Flag it as a validation bug, not
+a style nit.
+
+### Icons (SEP-973)
+
+`icons` is an array of `{ src, mimeType?, sizes?, theme? }` objects, present at the wire
+level on tools, resources, resource templates, and prompts. Verified against
+`typescript-sdk` `v1.29.0`, `src/types.ts`: `IconSchema`/`IconsSchema`, embedded in
+`ToolSchema`, `ResourceSchema`, `ResourceTemplateSchema`, and `PromptSchema`. It's a cheap
+metadata win when it's reachable: one `src` URL per icon, done.
+
+**Gotcha, called out loudly: the icons array is not reachable from every primitive's
+convenience API yet.** `registerResource`'s config accepts `icons` today, the same way it
+accepts `annotations` above, because it's the same `Omit<Resource, 'uri' | 'name'>` shape.
+`registerTool`'s and `registerPrompt`'s convenience config objects do not expose an `icons`
+field in `v1.29.0`, confirmed by reading `src/server/mcp.d.ts` directly: `registerTool`'s
+config is `{ title?, description?, inputSchema?, outputSchema?, annotations?:
+ToolAnnotations, _meta? }`, and `registerPrompt`'s is `{ title?, description?, argsSchema?
+}`. Neither lists `icons`, even though the wire schema supports it on both primitives. So
+today: resource and template icons are real and actionable through the high-level API; tool
+and prompt icons are spec-level and forward-looking until the SDK's convenience config
+catches up, or until a server drops to the low-level `Server` class and builds
+`ListToolsResult`/`ListPromptsResult` by hand.
+
+**Don't conflate this with `icon.svg` at the repo root.** That's a different thing entirely:
+Smithery's scoring rubric (see `smithery-config.md`) gives 10pt for a single `icon.svg` file
+at the repository root, a directory-listing convention unrelated to the SEP-973 `icons`
+array on individual primitives. `icon.svg` at the repo root is the actionable step today for
+every server regardless of SDK version; the `icons` array is additional coverage, currently
+wired up for resources and templates only.
+
+### Naming portability: no dots, ever
+
+The MCP spec's name charset (`A-Za-z0-9_.-`) allows dots. The Claude API's tool-name
+validation charset (`[a-zA-Z0-9_-]`) does not. A dot-namespaced tool or prompt name breaks
+on the largest MCP client even though it's spec-legal.
+
+Field-verified: a dot-notation rename on japan-seasons caused a live Smithery score drop,
+reverted back to underscores afterward. Rule: underscores always, no exceptions, in both
+tool names and prompt names. See the Workflow prompts section's PROMPT QUALITY checklist
+above for the prompt-naming half of this rule; this is the one place both halves are stated
+together.
+
+### Pagination: one opaque-cursor pattern
+
+`resources/list`, `resources/templates/list`, `prompts/list`, and `tools/list` all share
+the same request/result shape: an optional `cursor: string` on the request, an optional
+`nextCursor: string` on the result. Verified against `typescript-sdk` `v1.29.0`,
+`src/types.ts`: `PaginatedRequestSchema`/`PaginatedResultSchema`, reused by all four list
+endpoints. One pattern, not four; don't invent a different cursor scheme per endpoint.
+
+The cursor is opaque to clients. Whatever the server encodes into it (an offset, an id, a
+page token), the client's only job is to pass it back unchanged on the next request.
+Clients must never parse, decode, or construct a cursor themselves.
+
+`McpServer`'s high-level convenience API (`registerResource`, `registerTool`,
+`registerPrompt`) does not implement pagination; it returns the complete list in a single
+response regardless of any `cursor` the client sends. That's fine for the common scaffolded
+case, a bounded, human-sized primitive count. A server with a large enough primitive list to
+need real pagination has to drop to the low-level `Server` class and honor
+`cursor`/`nextCursor` by hand in its `ListResourcesRequestSchema`,
+`ListResourceTemplatesRequestSchema`, `ListPromptsRequestSchema`, and
+`ListToolsRequestSchema` handlers, using the same opaque-cursor contract across all four.
