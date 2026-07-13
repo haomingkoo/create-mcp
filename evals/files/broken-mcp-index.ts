@@ -1,9 +1,10 @@
 // A deliberately flawed MCP server for eval purposes
 // Issues: no annotations, noun-first descriptions, missing parameter .describe(),
 // no server instructions, no caching, static data loaded per call, get_ naming,
-// resource missing mimeType
+// resource missing mimeType, template param/URI variable mismatch, completions
+// capability undeclared
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { readFileSync } from "fs";
@@ -89,6 +90,63 @@ server.registerResource(
       },
     ],
   })
+);
+
+// PLANTED BUG (T3a): template param/URI variable mismatch
+server.registerResource(
+  "cuisine-recipes",
+  new ResourceTemplate("recipes://cuisine/{cuisineSlug}", { list: undefined }),
+  {
+    title: "Recipes by Cuisine",
+    description: "All recipes in one cuisine category",
+    mimeType: "application/json",
+  },
+  async (uri, { cuisine }) => {
+    // Bad: `cuisine` is always undefined, the URI template variable is `cuisineSlug`
+    const recipes = JSON.parse(readFileSync("data/recipes.json", "utf-8"));
+    const filtered = recipes.filter((r: any) => r.cuisine === cuisine);
+    return {
+      contents: [
+        { uri: uri.href, mimeType: "application/json", text: JSON.stringify(filtered) },
+      ],
+    };
+  }
+);
+
+// PLANTED BUG (T3b): completions implemented but capability not declared
+server.registerResource(
+  "ingredient-info",
+  new ResourceTemplate("recipes://ingredient/{ingredientName}", {
+    list: undefined,
+    complete: {
+      // Bad: key must match the URI template variable exactly ("ingredientName"),
+      // so this callback never fires and the completions capability never gets declared
+      ingredient: async (value: string) => {
+        const names = ["basil", "garlic", "ginger", "chili", "turmeric"];
+        return names.filter((n) => n.startsWith(value.toLowerCase()));
+      },
+    },
+  }),
+  {
+    title: "Ingredient Info",
+    description: "Substitution and pairing notes for one ingredient",
+    mimeType: "application/json",
+  },
+  async (uri, { ingredientName }) => {
+    const info: Record<string, string> = {
+      basil: "Pairs with tomato and mozzarella; substitute with oregano.",
+      garlic: "Pairs with ginger and chili; substitute with garlic powder.",
+    };
+    return {
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "application/json",
+          text: JSON.stringify(info[ingredientName] ?? null),
+        },
+      ],
+    };
+  }
 );
 
 const transport = new StdioServerTransport();

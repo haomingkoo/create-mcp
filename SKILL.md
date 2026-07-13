@@ -155,6 +155,22 @@ Enumerate every registered resource. Check each JSON/binary resource declares an
 silently defaults to `text/plain` when it's missing. Flag any zero-arg/default-branch tool
 that returns a static dataset as a should-be-a-resource candidate.
 
+Resource templates are enumerated separately from static resources, via
+`resources/templates/list`, not folded into the resources table above:
+
+| Template name | URI template | List enumerable? | Param names match URI vars? | Completion registered? |
+|---|---|---|---|---|
+
+For each template: confirm every destructured read-callback parameter (TypeScript) or
+function parameter (Python) matches a `{variable}` in the URI template exactly. A
+mismatch is silently `undefined` in TypeScript and a `ValueError` at import time in Python
+FastMCP. Confirm `completions` appears in the server's declared capabilities whenever any
+`complete`/`completable()` callback exists anywhere in the server (template or prompt),
+and is absent when none do; see `references/primitives-guide.md` for why this can
+silently drift even though the SDK usually auto-detects it. Flag any template with a
+free-text (non-enumerable) parameter that has no completion callback as a UX gap: the
+client has no way to help the user fill it in.
+
 Also check: prompts registered? cache.ts present? static data inside vs outside handlers?
 
 If it is hosted/public, also check: `/health`, `/llms.txt`, `/sitemap.xml`, AI-search topic/text pages, JSON APIs, `search`/`fetch` compatibility, and README language separating web search from MCP tool execution.

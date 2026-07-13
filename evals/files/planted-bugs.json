@@ -6,6 +6,18 @@
       "marker": "PLANTED BUG (T2): json resource missing mimeType",
       "description": "The `cuisines` resource (registered via server.registerResource) returns JSON content but declares no mimeType, in either the registration metadata or the read callback's contents[] entry, so clients can't tell it isn't text/plain.",
       "eval_id": 4
+    },
+    {
+      "id": "T3a-template-param-mismatch",
+      "marker": "PLANTED BUG (T3a): template param/URI variable mismatch",
+      "description": "The `cuisine-recipes` resource template's URI is `recipes://cuisine/{cuisineSlug}`, but the read callback destructures `{ cuisine }`, so the parameter is always undefined and the filter never matches any recipe.",
+      "eval_id": 5
+    },
+    {
+      "id": "T3b-completions-capability-undeclared",
+      "marker": "PLANTED BUG (T3b): completions implemented but capability not declared",
+      "description": "The `ingredient-info` resource template's `complete` map is keyed `ingredient`, but the URI template variable is `ingredientName`. The SDK's completion auto-detection only checks real URI template variable names, so it never finds a match, never enables the completion handler, and the server never declares the `completions` capability, even though the callback code exists.",
+      "eval_id": 5
     }
   ]
 }

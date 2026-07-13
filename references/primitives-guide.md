@@ -12,7 +12,7 @@ the AUDIT PATH resources check.
 |---|---|---|
 | **Tool** (default) | Any action, side effect, write, or computation. Most capabilities are tools. | see `references/typescript-boilerplate.md` |
 | **Resource** | A static, read-only dataset — same content every call, no meaningful parameters. | covered below |
-| **Resource template** | A parameterized, hierarchical read — one string arg drives a listing (e.g. `docs://{category}`). | stub — T3 fills |
+| **Resource template** | A parameterized, hierarchical read — one string arg drives a listing (e.g. `docs://{category}`). | covered below |
 | **Prompt** | A recurring workflow that chains multiple tools in a known order. | stub — T4 fills |
 
 **Tools-only is a valid, common answer.** Stripe's MCP server exposes only tools ("The
@@ -117,3 +117,188 @@ resource.
 
 Declaring a flag without the matching implementation is an AUDIT-path bug: capability
 declared but not implemented.
+
+---
+
+## Resource templates
+
+### When the heuristic fires
+
+Fires when a capability is a **read-only tool with exactly one or a few string
+parameters that select from a finite, hierarchical space**, where the parameter narrows a
+listing rather than triggering a side effect. `seasons://spots/{prefecture}` (viewing
+spots in one prefecture) and `docs://{category}` (documents in one category) are template
+shapes. If the capability would otherwise be `list_x(category: string)` with no other
+live branches, it's a template, not a tool.
+
+The canonical real-world case is GitHub's official MCP server: its repository-files-at-refs
+resources are addressed as templates keyed by owner/repo/ref/path, so the URI itself is
+the read, not a tool call with the same arguments.
+
+Don't apply this to a capability that also writes, ranks/scores results, or takes
+non-hierarchical filter combinations; those stay tools.
+
+### RFC 6570 URI template syntax
+
+Resource template URIs follow [RFC 6570](https://www.rfc-editor.org/rfc/rfc6570). The
+forms both v1 SDKs document and handle reliably:
+
+| Form | Meaning | Example |
+|---|---|---|
+| `{var}` | Simple string expansion, stops at `/` | `seasons://spots/{prefecture}` |
+| `{+var}` | Reserved expansion, allows `/` inside the value | `docs://{+path}` |
+| `{/var}` | Path-segment expansion | `docs{/category}` |
+| `{?var}` | Query-parameter expansion | `search://items{?query}` |
+
+Stick to plain `{var}` unless you've confirmed the SDK version and target client both
+handle the extended operators. It's the form used in every template example in both
+SDKs' own docs, and the one guaranteed to round-trip.
+
+### TypeScript SDK v1
+
+```typescript
+import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+
+server.registerResource(
+  "spots-by-prefecture",
+  new ResourceTemplate("seasons://spots/{prefecture}", {
+    list: undefined, // REQUIRED key, see gotcha below
+  }),
+  {
+    title: "Viewing Spots by Prefecture",
+    description: "Cherry blossom viewing spots in one prefecture.",
+    mimeType: "application/json",
+  },
+  async (uri, { prefecture }) => ({
+    contents: [
+      {
+        uri: uri.href,
+        mimeType: "application/json",
+        text: JSON.stringify(getSpots(prefecture)),
+      },
+    ],
+  })
+);
+```
+
+**Gotcha, called out loudly: `list` is a REQUIRED key on the `ResourceTemplate` options
+object, there is no default.** If the instance space is enumerable, pass a `list`
+callback that returns `{ resources: [...] }` so clients can discover instances via
+`resources/list`. If it isn't enumerable (an unbounded free-text space, e.g. arbitrary
+repo paths), pass `list: undefined` explicitly. Omitting the key entirely is a
+TypeScript compile error, not a silent default.
+
+The read callback's second argument is an object keyed by the URI template's variable
+names. **The destructured parameter names must match the `{variable}` names in the URI
+template exactly**: `{prefecture}` in the URI means the callback destructures
+`{ prefecture }`, not `{ prefectureName }` or any other name. A mismatch doesn't throw:
+the destructured value is silently `undefined` and the handler runs with a missing
+argument. This is the exact bug planted as T3a in `evals/files/broken-mcp-index.ts`.
+
+### Python FastMCP v1
+
+```python
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("your-mcp-name")
+
+@mcp.resource(
+    "seasons://spots/{prefecture}",
+    name="spots-by-prefecture",
+    title="Viewing Spots by Prefecture",
+    description="Cherry blossom viewing spots in one prefecture.",
+    mime_type="application/json",
+)
+def spots_by_prefecture(prefecture: str) -> dict:
+    return get_spots(prefecture)
+```
+
+**Function parameter names must match the URI template variables exactly.** Unlike the
+TypeScript SDK's silent-`undefined` failure mode, FastMCP enforces this at decoration
+time: a placeholder like `{prefecture}` paired with a function parameter named `district`
+raises `ValueError` when the module loads, before the server ever starts. Stricter than
+TypeScript here, but still worth an explicit AUDIT check; don't rely on import-time
+errors alone if the audit is reading source without executing it.
+
+---
+
+## Completions
+
+Completions are a **companion to resource templates and prompts, never a standalone
+primitive.** GitHub's official MCP server is the canonical case: it implements
+`completion/complete` only for the path-segment arguments of its resource templates
+(owner, repo, branch, sha, tag, path, PR number), nothing else in the server uses
+completions. If a server has no template with a free-text parameter and no prompt with an
+open-ended argument, it has nothing to complete.
+
+### Two distinct mechanisms, don't conflate them
+
+| Mechanism | Wraps | Declared inside |
+|---|---|---|
+| `completable(schema, cb)` | A **prompt argument's** zod schema | `argsSchema` passed to `registerPrompt` |
+| `complete: { param: cb }` | A **resource template's** URI variables | The second argument of the `ResourceTemplate` constructor |
+
+```typescript
+import { completable } from "@modelcontextprotocol/sdk/server/completable.js";
+import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
+
+// Mechanism 1: completable() wraps a PROMPT argument
+server.registerPrompt(
+  "plan_koyo_trip",
+  {
+    description: "Plan an autumn-leaves viewing trip.",
+    argsSchema: {
+      prefecture: completable(z.string(), (value) =>
+        PREFECTURES.filter((p) => p.startsWith(value))
+      ),
+    },
+  },
+  ({ prefecture }) => ({ /* ... */ })
+);
+
+// Mechanism 2: the `complete` map on a ResourceTemplate's constructor options
+new ResourceTemplate("seasons://spots/{prefecture}", {
+  list: undefined,
+  complete: {
+    prefecture: async (value) =>
+      PREFECTURES.filter((p) => p.startsWith(value)),
+  },
+});
+```
+
+Both callbacks share the same `(value, context?)` signature, but they're wired into
+different constructors and cover different primitives: fixing a prompt argument's
+completion doesn't touch a template's, and vice versa.
+
+### Capability declaration
+
+`McpServer`'s high-level API additively merges `completions: {}` into the advertised
+capabilities the first time it detects a real `completable()` field or a template
+`complete` callback, so you don't have to declare it by hand in the common case. But the
+template-side detection keys off an **exact match** between the `complete` map's keys and
+the URI template's real variable names, the same name-matching contract as the read
+callback, above. A typo'd key means the callback is present in source but never wired up:
+the SDK never finds a matching variable, never enables the completion handler, and the
+server never advertises `completions` even though the code looks complete. That is the
+T3b bug planted in the fixture: implemented, but the capability a client needs in order
+to discover it is never declared.
+
+The **low-level `Server` class has no such auto-detection at all.** Capabilities there
+are never inferred from registered handlers; every capability, `completions` included,
+must be passed to the constructor explicitly:
+
+```typescript
+new Server({ name: "s", version: "0" }, { capabilities: { completions: {} } });
+```
+
+Using a low-level completion handler without declaring the capability fails at request
+time, not at startup, another reason to check the declared capabilities directly during
+an audit rather than assuming a handler's presence is enough.
+
+### Results cap at 100
+
+A completion response's `values` array is capped at 100 items regardless of how many
+matches exist; `total` and `hasMore` describe the full match count so clients know there
+is more even though only the first 100 come back. Sort or rank before truncating; don't
+return an arbitrary 100.

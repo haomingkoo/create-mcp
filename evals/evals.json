@@ -75,6 +75,21 @@
         "Fix adds mimeType: \"application/json\" to the contents[] entry returned by the read callback",
         "Does not misidentify the cuisines resource as a tool, and does not suggest removing it instead of fixing the mimeType"
       ]
+    },
+    {
+      "id": 5,
+      "prompt": "I have an existing MCP server I need you to audit and fix. The source file is at evals/files/broken-mcp-index.ts. It's a recipe finder MCP. Please audit it, fix all the issues including any resource template and completions issues, and tell me the estimated Smithery score before and after.",
+      "expected_output": "The audit enumerates resource templates separately from static resources (resources/templates/list) and identifies two issues: the cuisine-recipes template's read callback destructures `cuisine` while the URI template variable is `cuisineSlug`, and the ingredient-info template's `complete` map key `ingredient` doesn't match its URI template variable `ingredientName`, so the completions capability never gets declared even though the callback exists. Both are fixed: the read callback is corrected to destructure `cuisineSlug`, and the complete map key is corrected to `ingredientName`.",
+      "files": ["evals/files/broken-mcp-index.ts"],
+      "expectations": [
+        "Audit builds a resource templates table separate from the static resources table, noting param/URI variable name match and completion registration",
+        "Identifies the cuisine-recipes template's read callback destructuring `cuisine` when the URI template variable is `cuisineSlug`",
+        "Fix renames the destructured parameter to `cuisineSlug` (or renames the URI template variable to `cuisine`, but not both diverging)",
+        "Identifies the ingredient-info template's complete map key `ingredient` as not matching the URI template variable `ingredientName`",
+        "Fix renames the complete map key to `ingredientName` so the callback is reachable and the completions capability gets declared",
+        "Does not conflate the two bugs: the cuisine-recipes fix does not touch the complete map, and the ingredient-info fix does not touch the read callback destructuring",
+        "Confirms (or notes as verification) that after the fix, completions appears in the server's declared capabilities"
+      ]
     }
   ]
 }
